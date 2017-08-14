@@ -40,7 +40,7 @@ uplevel \#0 {
 # library code can find message catalogs and time zone definition files.
 
 namespace eval ::tcl::clock \
-    [list variable LibDir [file dirname [info script]]]
+    [list variable LibDir [info library]]
 
 #----------------------------------------------------------------------
 #
@@ -537,7 +537,7 @@ proc ::tcl::clock::Initialize {} {
 # Results:
 #	Returns the dictionary object as whole catalog of the package/locale.
 #
-proc mcget {loc} {
+proc ::tcl::clock::mcget {loc} {
     variable mcMergedCat
     switch -- $loc system {
 	set loc [GetSystemLocale]
@@ -583,7 +583,7 @@ proc mcget {loc} {
 # Results:
 #	Returns the (weak pointer) to merged dictionary of message catalog.
 #
-proc mcMerge {locales} {
+proc ::tcl::clock::mcMerge {locales} {
     variable mcMergedCat
     if {[dict exists $mcMergedCat [set loc [lindex $locales 0]]]} {
 	return [dict get $mcMergedCat $loc]

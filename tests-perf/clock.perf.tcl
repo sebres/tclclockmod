@@ -15,6 +15,8 @@
 # of this file.
 # 
 
+## load library / tcl-clock-stubs:
+source [file dirname [file dirname [info script]]]/lib/loader.tcl
 
 ## set testing defaults:
 set ::env(TCL_TZ) :CET

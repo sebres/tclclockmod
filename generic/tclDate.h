@@ -13,6 +13,39 @@
 #ifndef _TCLCLOCK_H
 #define _TCLCLOCK_H
 
+/* Internals compatibilities (tclInt.h) - remove after merge to core */
+#include "tclClockModInt.h"
+#if !TCL_AVAIL_SBMOD
+MODULE_SCOPE Tcl_Obj * Tcl_DictObjSmartRef(Tcl_Interp *interp, Tcl_Obj *dictPtr);
+#ifdef TclListObjGetElements
+#  undef TclListObjGetElements
+#  define TclListObjGetElements Tcl_ListObjGetElements
+#endif
+#ifdef TclGetIntFromObj
+#  undef TclGetIntFromObj
+#  define TclGetIntFromObj Tcl_GetIntFromObj
+#endif
+#ifdef TclGetWideIntFromObj
+#  undef TclGetWideIntFromObj
+#  define TclGetWideIntFromObj Tcl_GetWideIntFromObj
+#endif
+MODULE_SCOPE const Tcl_ObjType* tclIntTypePtr;
+MODULE_SCOPE const Tcl_ObjType* tclWideIntTypePtr;
+MODULE_SCOPE const Tcl_ObjType* tclBignumTypePtr;
+MODULE_SCOPE const Tcl_ObjType* tclListTypePtr;
+
+#define tclIntType tclIntType123
+#define tclWideIntType tclWideIntType123
+
+#else
+
+#define tclIntTypePtr     (&tclIntType)
+#define tclWideIntTypePtr (&tclWideIntType)
+#define tclBignumTypePtr  (&tclBignumType)
+#define tclListTypePtr    (&tclListType)
+
+#endif /* TCL_AVAIL_SBMOD */
+
 /*
  * Constants
  */

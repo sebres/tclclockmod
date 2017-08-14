@@ -89,7 +89,7 @@ static void		GetYearWeekDay(TclDateFields *, int);
 static void		GetGregorianEraYearDay(TclDateFields *, int);
 static void		GetMonthDay(TclDateFields *);
 static Tcl_WideInt	WeekdayOnOrBefore(int, Tcl_WideInt);
-static int		ClockClicksObjCmd(
+TCL_CLOCKMOD_SCOPE int		ClockClicksObjCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
 static int		ClockConvertlocaltoutcObjCmd(
@@ -111,10 +111,10 @@ static int		ClockGetjuliandayfromerayearweekdayObjCmd(
 static int		ClockGetenvObjCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
-static int		ClockMicrosecondsObjCmd(
+TCL_CLOCKMOD_SCOPE int		ClockMicrosecondsObjCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
-static int		ClockMillisecondsObjCmd(
+TCL_CLOCKMOD_SCOPE int		ClockMillisecondsObjCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
 static int		ClockSecondsObjCmd(
@@ -1457,7 +1457,7 @@ ClockGetdatefieldsObjCmd(
      * that it isn't.
      */
 
-    if (objv[1]->typePtr == &tclBignumType) {
+    if (objv[1]->typePtr == tclBignumTypePtr) {
 	Tcl_SetObjResult(interp, literals[LIT_INTEGER_VALUE_TOO_LARGE]);
 	return TCL_ERROR;
     }
@@ -2988,6 +2988,7 @@ ThreadSafeLocalTime(
     return tmPtr;
 }
 
+#if TCL_AVAIL_SBMOD
 /*----------------------------------------------------------------------
  *
  * ClockClicksObjCmd --
@@ -3127,6 +3128,7 @@ ClockMicrosecondsObjCmd(
     Tcl_SetObjResult(interp, Tcl_NewWideIntObj(TclpGetMicroseconds()));
     return TCL_OK;
 }
+#endif
 
 static inline void
 ClockInitFmtScnArgs(
@@ -3316,7 +3318,7 @@ ClockParseFmtScnArgs(
 	 * Note the year is currently an integer, thus avoid to overflow it also.
 	 */
 
-	if ( baseObj->typePtr == &tclBignumType
+	if ( baseObj->typePtr == tclBignumTypePtr
 	  || baseVal < -0x00F0000000000000L || baseVal > 0x00F0000000000000L
 	) {
 	    Tcl_SetObjResult(interp, dataPtr->literals[LIT_INTEGER_VALUE_TOO_LARGE]);
@@ -4079,7 +4081,7 @@ ClockAddObjCmd(
 	if (TclGetWideIntFromObj(NULL, objv[i], &offs) != TCL_OK) {
 	    continue;
 	}
-	if (objv[i]->typePtr == &tclBignumType) {
+	if (objv[i]->typePtr == tclBignumTypePtr) {
 	    Tcl_SetObjResult(interp, dataPtr->literals[LIT_INTEGER_VALUE_TOO_LARGE]);
 	    goto done;
 	}
@@ -4232,8 +4234,10 @@ TzsetIfNecessary(void)
 					  * clockMutex. */
     static long	 tzLastRefresh = 0;	 /* Used for latency before next refresh */
     static size_t tzWasEpoch = 0;        /* Epoch, signals that TZ changed */
+#if TCL_AVAIL_SBMOD
     static size_t tzEnvEpoch = 0;        /* Last env epoch, for faster signaling,
 					    that TZ changed via TCL */
+#endif /* TCL_AVAIL_SBMOD */
 
     const char *tzIsNow;		 /* Current value of TZ */
 
@@ -4244,10 +4248,17 @@ TzsetIfNecessary(void)
      */
     Tcl_Time now;
     Tcl_GetTime(&now);
-    if (now.sec == tzLastRefresh && tzEnvEpoch == TclEnvEpoch) {
+    if (now.sec == tzLastRefresh
+#if TCL_AVAIL_SBMOD
+     && tzEnvEpoch == TclEnvEpoch
+#endif /* TCL_AVAIL_SBMOD */
+    ) {
 	return tzWasEpoch;
     }
+
+#if TCL_AVAIL_SBMOD
     tzEnvEpoch = TclEnvEpoch;
+#endif /* TCL_AVAIL_SBMOD */
     tzLastRefresh = now.sec;
 
     /* check in lock */

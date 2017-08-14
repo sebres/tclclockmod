@@ -13,6 +13,7 @@
 #ifndef _TCLSTRIDXTREE_H
 #define _TCLSTRIDXTREE_H
 
+#include "tclClockModInt.h"
 
 /*
  * Main structures declarations of index tree and entry
