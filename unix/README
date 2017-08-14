@@ -1,0 +1,35 @@
+
+Building the fast clock Tcl-module extension for Unix
+=====================================================
+
+Extension can be compiled on several Unix derivates including various
+distributions of Linux.
+
+To build on Unix-like operating systems:
+
+    % ../configure ?options ...?
+
+Either way, this will create a Makefile which you use to run "make" and
+"make install":
+
+You can use "make clean" to clean the directory from temporary compilation
+files and/or "make distclean" to additionaly remove local config files.
+You might want to do "make test" before doing the "make install" in order
+to run the regression tests on the package.
+
+To explore other building options, look into the file "configure" for more
+information.
+
+Example for typical build on x86 systems:
+
+    $ cd unix
+    $ ../configure --with-tcl=../../tcl8.6/unix
+    $ make clean && make
+
+Example for typical build on x64 systems:
+
+    $ cd unix
+    $ ../configure --enable-64bit --enable-64bit-vis --with-tcl=../../tcl8.6/unix
+    $ make clean && make
+
+-EOF-

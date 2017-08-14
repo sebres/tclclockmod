@@ -1,0 +1,52 @@
+// Version resource script
+//
+
+#include <winver.h>
+
+#define RESOURCE_INCLUDED
+#include <tcl.h>
+
+LANGUAGE 0x9, 0x1    /* LANG_ENGLISH, SUBLANG_DEFAULT */
+
+#define MOD_RELEASE_LEVEL 1
+#define MOD_RELEASE "mod." STRINGIFY(MOD_RELEASE_LEVEL)
+
+#define VERSION_STRING STRINGIFY(JOIN(PACKAGE_MAJOR,PACKAGE_MINOR))
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    PACKAGE_MAJOR,PACKAGE_MINOR,PACKAGE_RELEASE,MOD_RELEASE_LEVEL
+ PRODUCTVERSION PACKAGE_MAJOR,PACKAGE_MINOR,PACKAGE_RELEASE,0
+ FILEFLAGSMASK  0x3fL
+#if DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS     0x4    /* VOS__WINDOWS32 */
+ FILETYPE     0x2    /* VFT_DLL */
+ FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0" /* LANG_ENGLISH/SUBLANG_ENGLISH_US, Unicode CP */
+        BEGIN
+            VALUE "FileDescription", "Fast tcl-clock extension module for Tcl VERSION_STRING " " (" MOD_RELEASE ")\0"
+#if DEBUG
+            VALUE "OriginalFilename", "tclclockmod" VERSION_STRING "d.dll\0"
+#else
+            VALUE "OriginalFilename", "tclclockmod" VERSION_STRING ".dll\0"
+#endif
+            VALUE "CompanyName", "NONE! Open-sourced with no owner\0"
+            VALUE "FileVersion", PACKAGE_VERSION " (" MOD_RELEASE ")\0"
+            VALUE "LegalCopyright", "Copyright \251 1991-2016 by Serg G. Brester, Karl Lehenbauer, Mark Diekhans, Kevin B. Kenny, Sun Microsystems, Inc., ActiveState Corporation and Tcl community\0"
+            VALUE "ProductName", "Tcl for Windows\0"
+            VALUE "ProductVersion", PACKAGE_VERSION " (" MOD_RELEASE ")\0"
+            VALUE "Authors", "Serg G. Brester (sebres),\r\n" "Tcl community" "\0"
+            VALUE "Modification", "(" MOD_RELEASE ")" " \251 2005-2017 by Serg G. Brester (sebres.de)\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

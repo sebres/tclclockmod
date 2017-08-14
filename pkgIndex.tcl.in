@@ -1,0 +1,35 @@
+# -*- tcl -*-
+# Tcl package index file, version 1.1
+#
+
+package ifneeded tclclockmod @PACKAGE_VERSION@ [string map [list \$\$DIR$$ [list $dir]] {
+  # check pre-requirements (>= 8.6.5) :
+  package require Tcl 8.6.5
+  # load module:
+  load [file join $$DIR$$ @PKG_LIB_FILE@]
+  # load tcl-clock stubs:
+  if {[file exists [file join $$DIR$$ clock.tcl]]} {
+    source -encoding utf-8 [file join $$DIR$$ clock.tcl]
+  } elseif {[file exists [file join $$DIR$$ lib clock.tcl]]} {
+    source -encoding utf-8 [file join $$DIR$$ lib clock.tcl]
+  } elseif {[file exists [file join $$DIR$$ .. lib clock.tcl]]} {
+    source -encoding utf-8 [file join $$DIR$$ .. lib clock.tcl]
+  } else {
+    source -encoding utf-8 [file join $$DIR$$ .. .. lib clock.tcl]
+  }
+  # initialize new clock-ensemble:
+  proc clock args {
+    set cmdmap [dict create]
+    foreach cmd {add clicks format microseconds milliseconds scan seconds configure} {
+      dict set cmdmap $cmd ::tcl::clock::$cmd
+    }
+    namespace inscope ::tcl::clock [list namespace ensemble create -command \
+      [uplevel 1 [list ::namespace origin [::lindex [info level 0] 0]]] \
+      -map $cmdmap]
+    ::tcl::namespace::ensemble-compile "::clock"
+
+    uplevel 1 [info level 0]
+  }
+  # loaded:
+  package provide tclclockmod @PACKAGE_VERSION@
+}]
