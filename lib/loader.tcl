@@ -1,10 +1,33 @@
-if {[catch {
-  load tclclockmod86t
-}]} {
-  load tclclockmod86gt
-}
-source {..\..\lib\clock.tcl}
-proc clock args {
+# save clockmode path:
+set ::tcl::clock::LibDir [file dirname [info script]]
+
+# rewrite clock ensemble:
+proc ::clock args {
+  # first try from lib directory (like installed):
+  set lib [glob -nocomplain [file join $::tcl::clock::LibDir tclclockmod*[info sharedlibextension]]]
+  # second try find library from current directory (debug, release, platform etc.),
+  # hereafter in path relative current lib (like unistalled):
+  if {![llength $lib]} {
+    foreach plib [list {} [file dirname $::tcl::clock::LibDir]] {
+      # now from unix, win, Release:
+      set lib [expr { $::tcl_platform(platform) ne {windows} ? "unix" : "win" }]
+      foreach lib [list {} Release* $lib [file join $lib Release*]] {
+        set lib [glob -nocomplain [file join $plib $lib tclclockmod*[info sharedlibextension]]]
+        if {[llength $lib]} break
+      }
+      if {[llength $lib]} break
+    }
+    if {![llength $lib]} {
+      error "tclclockmod shared library not found relative \"[pwd]\"."
+    }
+  }
+  # load library:
+  load [lindex $lib 0]
+
+  # overload new tcl-clock stubs:
+  source [file join $::tcl::clock::LibDir clock.tcl]
+
+  # and ensemble:
   set cmdmap [dict create]
   foreach cmd {add clicks format microseconds milliseconds scan seconds configure} {
     dict set cmdmap $cmd ::tcl::clock::$cmd
