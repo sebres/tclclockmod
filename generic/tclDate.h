@@ -34,8 +34,11 @@ MODULE_SCOPE const Tcl_ObjType* tclWideIntTypePtr;
 MODULE_SCOPE const Tcl_ObjType* tclBignumTypePtr;
 MODULE_SCOPE const Tcl_ObjType* tclListTypePtr;
 
-#define tclIntType tclIntType123
-#define tclWideIntType tclWideIntType123
+/* for tcl-versions before 8.6.7 (without compiled clock seconds/clicks) */
+MODULE_SCOPE int TclCompileClockClicksCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr, 
+    struct Command *cmdPtr, struct CompileEnv *compEnvPtr);
+MODULE_SCOPE int TclCompileClockReadingCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr, 
+    struct Command *cmdPtr, struct CompileEnv *compEnvPtr);
 
 #else
 
