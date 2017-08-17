@@ -10,9 +10,18 @@ proc ::clock args {
   if {![llength $lib]} {
     foreach plib [list {} [file dirname $::tcl::clock::LibDir]] {
       # now from unix, win, Release:
-      set lib [expr { $::tcl_platform(platform) ne {windows} ? "unix" : "win" }]
+      if {$::tcl_platform(platform) ne {windows}} {
+        set lib "unix"
+        set name "lib"
+      } else {
+        set lib "win"
+        set name ""
+      }
+      append name tclclockmod * [info sharedlibextension]
       foreach lib [list {} Release* $lib [file join $lib Release*]] {
-        set lib [glob -nocomplain [file join $plib $lib tclclockmod*[info sharedlibextension]]]
+        #puts "**** try $plib / $lib -- [file join $plib $lib $name]"
+        set lib [glob -nocomplain [file join $plib $lib $name]]
+        #puts "==== $lib"
         if {[llength $lib]} break
       }
       if {[llength $lib]} break

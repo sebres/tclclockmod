@@ -4,7 +4,11 @@ puts "Load library ..."
 # load library:
 source [file dirname [file dirname [info script]]]/lib/loader.tcl
 
-cd $::env(TEMP)
+if {[catch {
+  cd $::env(TEMP)
+}]} {
+  cd /tmp/
+}
 
 puts "Test ..."
 # invoke test suite:
