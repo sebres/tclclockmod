@@ -121,12 +121,14 @@ TEA_ADD_SOURCES([generic/tclClock.c           \
                  generic/tclClockMod.c        \
                  generic/tclClockModInt.c     \
 ])
+# Don't install headers (may overwrite tcl-own headers if same folder):
+#TEA_ADD_HEADERS([generic/tclDate.h            \
+#                 generic/tclStrIdxTree.h      \
+#                 generic/tclClockModInt.h     \
+#])
 
-TEA_ADD_HEADERS([generic/tclDate.h            \
-                 generic/tclStrIdxTree.h      \
-                 generic/tclClockModInt.h     \
-])
-TEA_ADD_STUB_SOURCES([])
+#TEA_ADD_STUB_SOURCES([])
+
 TEA_ADD_TCL_SOURCES([lib/clock.tcl])
 
 #--------------------------------------------------------------------
