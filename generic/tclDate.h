@@ -376,6 +376,10 @@ typedef struct ClockClientData {
 	/* values */
 	int	    tzOffset;
     } local2utc;
+
+    size_t tzEnvEpoch;		    /* Last env epoch, for faster signaling,
+				       that TZ changed via TCL */
+
 } ClockClientData;
 
 #define ClockDefaultYearCentury 2000

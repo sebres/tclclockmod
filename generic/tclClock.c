@@ -74,14 +74,14 @@ TCL_DECLARE_MUTEX(clockMutex)
 static int		ConvertUTCToLocalUsingTable(Tcl_Interp *,
 			    TclDateFields *, int, Tcl_Obj *const[],
 			    Tcl_WideInt *rangesVal);
-static int		ConvertUTCToLocalUsingC(Tcl_Interp *,
+static int		ConvertUTCToLocalUsingC(ClockClientData*, Tcl_Interp *,
 			    TclDateFields *, int);
 static int		ConvertLocalToUTC(ClientData clientData, Tcl_Interp *,
 			    TclDateFields *, Tcl_Obj *timezoneObj, int);
 static int		ConvertLocalToUTCUsingTable(Tcl_Interp *,
 			    TclDateFields *, int, Tcl_Obj *const[],
 			    Tcl_WideInt *rangesVal);
-static int		ConvertLocalToUTCUsingC(Tcl_Interp *,
+static int		ConvertLocalToUTCUsingC(ClockClientData*, Tcl_Interp *, 
 			    TclDateFields *, int);
 static int		ClockConfigureObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]);
@@ -138,7 +138,7 @@ static int		ClockAddObjCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
 static struct tm *	ThreadSafeLocalTime(const time_t *);
-static size_t		TzsetIfNecessary(void);
+static size_t		TzsetIfNecessary(ClockClientData*);
 static void		ClockDeleteCmdProc(ClientData);
 
 /*
@@ -260,6 +260,8 @@ TclClockInit(
     data->utc2local.timezoneObj = NULL;
     data->utc2local.tzName = NULL;
     data->local2utc.timezoneObj = NULL;
+
+    data->tzEnvEpoch = 0;
 
     /*
      * Install the commands.
@@ -994,7 +996,7 @@ ClockConfigureObjCmd(
 	case CLOCK_SYSTEM_TZ:
 	if (1) {
 	    /* validate current tz-epoch */
-	    size_t lastTZEpoch = TzsetIfNecessary();
+	    size_t lastTZEpoch = TzsetIfNecessary(dataPtr);
 	    if (i < objc) {
 		if (dataPtr->systemTimeZone != objv[i]) {
 		    Tcl_SetObjRef(dataPtr->systemTimeZone, objv[i]);
@@ -1190,7 +1192,7 @@ ClockGetSystemTimeZone(
 
     /* if known (cached and same epoch) - return now */
     if (dataPtr->systemTimeZone != NULL
-	    && dataPtr->lastTZEpoch == TzsetIfNecessary()) {
+	    && dataPtr->lastTZEpoch == TzsetIfNecessary(dataPtr)) {
 	return dataPtr->systemTimeZone;
     }
 
@@ -1866,7 +1868,8 @@ ConvertLocalToUTC(
 	dataPtr->local2utc.rangesVal[0] = 0;
 	dataPtr->local2utc.rangesVal[1] = 0;
 
-	if (ConvertLocalToUTCUsingC(interp, fields, changeover) != TCL_OK) {
+	if (ConvertLocalToUTCUsingC(dataPtr, interp, fields,
+		changeover) != TCL_OK) {
 	    return TCL_ERROR;
 	};
     } else {
@@ -2017,6 +2020,7 @@ ConvertLocalToUTCUsingTable(
 
 static int
 ConvertLocalToUTCUsingC(
+    ClockClientData *dataPtr,	/* Clock client data of interpreter */
     Tcl_Interp *interp,		/* Tcl interpreter */
     TclDateFields *fields,	/* Time to convert, with 'seconds' filled in */
     int changeover)		/* Julian Day of the Gregorian transition */
@@ -2059,7 +2063,7 @@ ConvertLocalToUTCUsingC(
      * platforms, so seize a mutex before attempting this.
      */
 
-    TzsetIfNecessary();
+    TzsetIfNecessary(dataPtr);
     Tcl_MutexLock(&clockMutex);
     errno = 0;
     fields->seconds = (Tcl_WideInt) mktime(&timeVal);
@@ -2162,7 +2166,8 @@ ConvertUTCToLocal(
 	dataPtr->utc2local.rangesVal[0] = 0;
 	dataPtr->utc2local.rangesVal[1] = 0;
 
-	if (ConvertUTCToLocalUsingC(interp, fields, changeover) != TCL_OK) {
+	if (ConvertUTCToLocalUsingC(dataPtr, interp, fields, 
+		changeover) != TCL_OK) {
 	    return TCL_ERROR;
 	}
     } else {
@@ -2253,6 +2258,7 @@ ConvertUTCToLocalUsingTable(
 
 static int
 ConvertUTCToLocalUsingC(
+    ClockClientData *dataPtr,	/* Clock client data of interpreter */
     Tcl_Interp *interp,		/* Tcl interpreter */
     TclDateFields *fields,	/* Time to convert, with 'seconds' filled in */
     int changeover)		/* Julian Day of the Gregorian transition */
@@ -2273,7 +2279,7 @@ ConvertUTCToLocalUsingC(
 	Tcl_SetErrorCode(interp, "CLOCK", "argTooLarge", NULL);
 	return TCL_ERROR;
     }
-    TzsetIfNecessary();
+    TzsetIfNecessary(dataPtr);
     timeVal = ThreadSafeLocalTime(&tock);
     if (timeVal == NULL) {
 	Tcl_SetObjResult(interp, Tcl_NewStringObj(
@@ -4228,14 +4234,13 @@ ClockSecondsObjCmd(
  */
 
 static size_t
-TzsetIfNecessary(void)
+TzsetIfNecessary(
+    ClockClientData *dataPtr)
 {
     static char* tzWas = INT2PTR(-1);	 /* Previous value of TZ, protected by
 					  * clockMutex. */
     static long	 tzLastRefresh = 0;	 /* Used for latency before next refresh */
     static size_t tzWasEpoch = 0;        /* Epoch, signals that TZ changed */
-    static size_t tzEnvEpoch = 0;        /* Last env epoch, for faster signaling,
-					    that TZ changed via TCL */
     const char *tzIsNow;		 /* Current value of TZ */
 
     /*
@@ -4245,11 +4250,11 @@ TzsetIfNecessary(void)
      */
     Tcl_Time now;
     Tcl_GetTime(&now);
-    if (now.sec == tzLastRefresh && tzEnvEpoch == TclEnvEpoch) {
+    if (now.sec == tzLastRefresh && dataPtr->tzEnvEpoch == TclEnvEpoch) {
 	return tzWasEpoch;
     }
 
-    tzEnvEpoch = TclEnvEpoch;
+    dataPtr->tzEnvEpoch = TclEnvEpoch;
     tzLastRefresh = now.sec;
 
     /* check in lock */
