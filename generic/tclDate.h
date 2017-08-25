@@ -40,6 +40,9 @@ MODULE_SCOPE int TclCompileClockClicksCmd(Tcl_Interp *interp, Tcl_Parse *parsePt
 MODULE_SCOPE int TclCompileClockReadingCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr, 
     struct Command *cmdPtr, struct CompileEnv *compEnvPtr);
 
+MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
+                                         * (if changed with tcl-env). */
+
 #else
 
 #define tclIntTypePtr     (&tclIntType)
@@ -419,7 +422,7 @@ typedef struct ClockScanTokenMap {
     const void	       *data;
 } ClockScanTokenMap;
 
-typedef struct ClockScanToken {
+struct ClockScanToken {
     ClockScanTokenMap  *map;
     struct {
 	const char *start;
@@ -429,7 +432,7 @@ typedef struct ClockScanToken {
     unsigned short int	lookAhMin;
     unsigned short int	lookAhMax;
     unsigned short int	lookAhTok;
-} ClockScanToken;
+};
 
 
 #define MIN_FMT_RESULT_BLOCK_ALLOC 200
@@ -468,18 +471,19 @@ typedef struct ClockFormatTokenMap {
     ClockFormatTokenProc *fmtproc;
     void	       *data;
 } ClockFormatTokenMap;
-typedef struct ClockFormatToken {
+
+struct ClockFormatToken {
     ClockFormatTokenMap *map;
     struct {
 	const char *start;
 	const char *end;
     } tokWord;
-} ClockFormatToken;
+};
 
 
 typedef struct ClockFmtScnStorage ClockFmtScnStorage;
 
-typedef struct ClockFmtScnStorage {
+struct ClockFmtScnStorage {
     int			 objRefCount;	/* Reference count shared across threads */
     ClockScanToken	*scnTok;
     unsigned int	 scnTokC;
@@ -494,7 +498,7 @@ typedef struct ClockFmtScnStorage {
    +Tcl_HashEntry    hashEntry		/* ClockFmtScnStorage is a derivate of Tcl_HashEntry,
 					 * stored by offset +sizeof(self) */
 #endif
-} ClockFmtScnStorage;
+};
 
 /*
  * Prototypes of module functions.

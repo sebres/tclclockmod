@@ -133,6 +133,43 @@ Tcl_DictObjSmartRef(
  *----------------------------------------------------------------------
  */
 
+/* MODULE_SCOPE */
+size_t TclEnvEpoch = 0;		/* Epoch of the tcl environment
+				 * (if changed with tcl-env). */
+
+/* ARGSUSED */
+static char *
+EnvEpochTraceProc(
+    ClientData clientData,	/* Not used. */
+    Tcl_Interp *interp,		/* Interpreter whose "env" variable is being
+				 * modified. */
+    const char *name1,		/* Better be "env". */
+    const char *name2,		/* Name of variable being modified, or NULL if
+				 * whole array is being deleted (UTF-8). */
+    int flags)			/* Indicates what's happening. */
+{
+    /*
+     * Increase env-epoch if changed.
+     */
+
+    if (flags & TCL_TRACE_ARRAY) {
+	TclEnvEpoch++;
+	return NULL;
+    }
+    if (name2 == NULL) {
+	return NULL;
+    }
+    if (flags & TCL_TRACE_WRITES) {
+	TclEnvEpoch++;
+    }
+    else
+    if (flags & TCL_TRACE_UNSETS) {
+	TclEnvEpoch++;
+    }
+    return NULL;
+}
+
+
 /*
  * TclpCompileEnsemblObjCmd --
  */
@@ -182,4 +219,10 @@ void _InitModTclIntInternals(Tcl_Interp *interp) {
     /* Create compiling ensemble command */
     (void)Tcl_CreateObjCommand(interp, "::tcl::namespace::ensemble-compile",
 		TclpCompileEnsemblObjCmd, NULL, NULL);
+
+    /* Icrement env-epoch if env variable changed */
+    Tcl_TraceVar2(interp, "env", NULL,
+	    TCL_GLOBAL_ONLY | TCL_TRACE_WRITES | TCL_TRACE_UNSETS |
+	    TCL_TRACE_ARRAY, EnvEpochTraceProc, NULL);
+
 }

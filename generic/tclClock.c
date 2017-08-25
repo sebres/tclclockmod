@@ -4234,11 +4234,8 @@ TzsetIfNecessary(void)
 					  * clockMutex. */
     static long	 tzLastRefresh = 0;	 /* Used for latency before next refresh */
     static size_t tzWasEpoch = 0;        /* Epoch, signals that TZ changed */
-#if TCL_AVAIL_SBMOD
     static size_t tzEnvEpoch = 0;        /* Last env epoch, for faster signaling,
 					    that TZ changed via TCL */
-#endif /* TCL_AVAIL_SBMOD */
-
     const char *tzIsNow;		 /* Current value of TZ */
 
     /*
@@ -4248,17 +4245,11 @@ TzsetIfNecessary(void)
      */
     Tcl_Time now;
     Tcl_GetTime(&now);
-    if (now.sec == tzLastRefresh
-#if TCL_AVAIL_SBMOD
-     && tzEnvEpoch == TclEnvEpoch
-#endif /* TCL_AVAIL_SBMOD */
-    ) {
+    if (now.sec == tzLastRefresh && tzEnvEpoch == TclEnvEpoch) {
 	return tzWasEpoch;
     }
 
-#if TCL_AVAIL_SBMOD
     tzEnvEpoch = TclEnvEpoch;
-#endif /* TCL_AVAIL_SBMOD */
     tzLastRefresh = now.sec;
 
     /* check in lock */
