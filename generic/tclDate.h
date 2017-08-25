@@ -40,6 +40,9 @@ MODULE_SCOPE int TclCompileClockClicksCmd(Tcl_Interp *interp, Tcl_Parse *parsePt
 MODULE_SCOPE int TclCompileClockReadingCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr, 
     struct Command *cmdPtr, struct CompileEnv *compEnvPtr);
 
+MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
+                                         * (if changed with tcl-env). */
+
 #else
 
 #define tclIntTypePtr     (&tclIntType)
