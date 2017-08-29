@@ -19,16 +19,16 @@
 MODULE_SCOPE Tcl_Obj * Tcl_DictObjSmartRef(Tcl_Interp *interp, Tcl_Obj *dictPtr);
 #ifdef TclListObjGetElements
 #  undef TclListObjGetElements
-#  define TclListObjGetElements Tcl_ListObjGetElements
 #endif
+#  define TclListObjGetElements Tcl_ListObjGetElements
 #ifdef TclGetIntFromObj
 #  undef TclGetIntFromObj
-#  define TclGetIntFromObj Tcl_GetIntFromObj
 #endif
+#  define TclGetIntFromObj Tcl_GetIntFromObj
 #ifdef TclGetWideIntFromObj
 #  undef TclGetWideIntFromObj
-#  define TclGetWideIntFromObj Tcl_GetWideIntFromObj
 #endif
+#  define TclGetWideIntFromObj Tcl_GetWideIntFromObj
 MODULE_SCOPE const Tcl_ObjType* tclIntTypePtr;
 MODULE_SCOPE const Tcl_ObjType* tclWideIntTypePtr;
 MODULE_SCOPE const Tcl_ObjType* tclBignumTypePtr;
