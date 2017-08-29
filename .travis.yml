@@ -1,0 +1,39 @@
+# vim ft=yaml
+# travis-ci.org definition for tclclockmod build
+# https://travis-ci.org/sebres/tclclockmod/
+dist: trusty
+sudo: false
+
+language: c
+
+# test it with both compilers:
+compiler:
+  - clang
+  - gcc
+
+addons:
+  apt:
+    packages:
+      - tcl8.6
+      - tcl8.6-dev
+
+before_script:
+  - echo puts [info patchlevel] | tclsh
+  - export BUILD_DIR=$(pwd)
+  # prerequirements (tclconfig)
+  - git clone https://github.com/tcltk/tclconfig.git ./tclconfig
+
+script:
+  - echo "Build with $CC ..."
+  #- autoconf
+  #- autoreconf -iv
+  - cd unix
+  - ../configure --with-tcl=/usr/lib/tcl8.6
+  - make
+  # load local library and execute local test cases:
+  - tclsh $BUILD_DIR/tests/all.tcl
+  # clean all
+  - make clean
+
+matrix:
+  fast_finish: true

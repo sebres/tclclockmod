@@ -1,4 +1,4 @@
-puts "Testing with [info nameofexecutable] ..."
+puts "Testing with [info patchlevel] from [info nameofexecutable] ..."
 
 puts "Load library ..."
 # load library:
