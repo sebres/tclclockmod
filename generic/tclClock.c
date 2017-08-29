@@ -2610,11 +2610,27 @@ GetMonthDay(
 {
     int day = fields->dayOfYear;
     int month;
-    const int *h = hath[IsGregorianLeapYear(fields)];
+    const int *dipm = daysInPriorMonths[IsGregorianLeapYear(fields)];
 
-    for (month = 0; month < 12 && day > h[month]; ++month) {
-	day -= h[month];
+    /* 
+     * Estimate month by calculating `dayOfYear / (365/12)`
+     */
+    month = (day*12) / dipm[12];
+    /* then do forwards backwards correction */
+    while (1) {
+	if (day > dipm[month]) {
+	    if (month >= 11 || day <= dipm[month+1]) {
+		break;
+	    }
+	    month++;
+	} else {
+	    if (month == 0) {
+		break;
+	    }
+	    month--;
+	}
     }
+    day -= dipm[month];
     fields->month = month+1;
     fields->dayOfMonth = day;
 }
