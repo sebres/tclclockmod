@@ -21,6 +21,7 @@ const Tcl_ObjType* tclListTypePtr;
 const char *tclEmptyStringRep;
 
 extern void _InitModTclIntInternals(Tcl_Interp *interp);
+extern int  _InitModTclIntInterp(Tcl_Interp *interp);
 extern void TclClockInit(Tcl_Interp *interp);
 
 /*
@@ -86,6 +87,9 @@ Tclclockmod_Init(interp)
 	}
 	_InitModTclInternals(interp);
 	initialized = 1;
+    }
+    if (_InitModTclIntInterp(interp) != TCL_OK) {
+	return TCL_ERROR;
     }
 
     TclClockInit(interp);

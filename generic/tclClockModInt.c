@@ -188,7 +188,6 @@ int TclpCompileEnsemblObjCmd(
  * _InitModTclIntInternals --
  */
 void _InitModTclIntInternals(Tcl_Interp *interp) {
-
     /*
      * There is no other way to get some internal tcl-primitives
      * w/o this tricks, regardless whether using stubs or not
@@ -215,14 +214,24 @@ void _InitModTclIntInternals(Tcl_Interp *interp) {
 	InterpCommand(interp, "::tcl::clock::milliseconds")->objProc;
     _ClockMicrosecondsObjCmd =
 	InterpCommand(interp, "::tcl::clock::microseconds")->objProc;
+}
 
+/*
+ * _InitModTclIntInterp --
+ */
+int _InitModTclIntInterp(Tcl_Interp *interp) {
     /* Create compiling ensemble command */
-    (void)Tcl_CreateObjCommand(interp, "::tcl::namespace::ensemble-compile",
-		TclpCompileEnsemblObjCmd, NULL, NULL);
+    if (Tcl_CreateObjCommand(interp, "::tcl::namespace::ensemble-compile",
+		TclpCompileEnsemblObjCmd, NULL, NULL) == NULL) {
+	return TCL_ERROR;
+    };
 
     /* Icrement env-epoch if env variable changed */
-    Tcl_TraceVar2(interp, "env", NULL,
+    if (Tcl_TraceVar2(interp, "env", NULL,
 	    TCL_GLOBAL_ONLY | TCL_TRACE_WRITES | TCL_TRACE_UNSETS |
-	    TCL_TRACE_ARRAY, EnvEpochTraceProc, NULL);
+	    TCL_TRACE_ARRAY, EnvEpochTraceProc, NULL) != TCL_OK) {
+	return TCL_ERROR;
+    };
 
+    return TCL_OK;
 }
