@@ -8,7 +8,7 @@ proc ::clock args {
   # second try find library from current directory (debug, release, platform etc.),
   # hereafter in path relative current lib (like unistalled):
   if {![llength $lib]} {
-    foreach plib [list {} [file dirname $::tcl::clock::LibDir]] {
+    foreach plib [list [pwd] [file dirname $::tcl::clock::LibDir]] {
       # now from unix, win, Release:
       if {$::tcl_platform(platform) ne {windows}} {
         set lib "unix"
