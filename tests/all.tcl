@@ -12,6 +12,26 @@ if {[catch {
   cd /tmp/
 }
 
+# prepare:
+package require tcltest
+namespace import tcltest::*
+# register callback:
+set ::TestSummary(Failed) 0
+proc ::tcltest::ReportToMaster {Total Passed Skipped Failed args} {
+  array set ::TestSummary [list \
+    Total $Total Passed $Passed Skipped $Skipped Failed $Failed args $args]
+}
+
 puts "Test ..."
 # invoke test suite:
 source [file dirname [info script]]/clock.test
+
+# if calling direct:
+if {[info exists ::argv0] && [file tail $::argv0] eq [file tail [info script]]} {
+  if {$::TestSummary(Failed)} {
+    puts stderr "\n[string repeat ** 20]"
+    puts stderr "** ERROR: $::TestSummary(Failed) test(s) failed"
+    puts stderr [string repeat ** 20]
+    exit 1
+  }
+}
