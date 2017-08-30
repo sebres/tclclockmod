@@ -1,7 +1,11 @@
 # prepare:
-package require tcltest
-namespace import tcltest::*
-proc ::tcltest::exit {args} {}
+set TEST_OPTIONS {}
+if {[lsearch [namespace children] ::tcltest] == -1} {
+  package require tcltest
+  namespace import tcltest::*
+  ::tcltest::configure {*}[set TEST_OPTIONS $::argv]
+  proc ::tcltest::exit {args} {}
+}
 
 puts [outputChannel] "Testing with [info patchlevel] from [info nameofexecutable] ..."
 
@@ -50,9 +54,9 @@ set GLOB_OPTIONS {
   clock format -now -format "%Es" -gmt 1
   puts [outputChannel] "  Test ..."
 }
-foreach testfile [glob -tails -types {f} -directory $TESTDIR *.test] {
+foreach testfile [lsort -dictionary [::tcltest::GetMatchingFiles $TESTDIR]] {
   # prepare single run:
-  set ::TestSummary(File) [file root $testfile]
+  set ::TestSummary(File) [file root [file tail $testfile]]
   incr ::tcltest::numTestFiles
   puts -nonewline [outputChannel] [set msg "== ${::tcltest::numTestFiles}. $::TestSummary(File) "]
   puts [outputChannel] [string repeat = [expr {80-[string length $msg]}]]
@@ -61,6 +65,7 @@ foreach testfile [glob -tails -types {f} -directory $TESTDIR *.test] {
   $slave eval {namespace import tcltest::*}
   interp alias $slave ::tcltest::ReportToMaster {} ::tcltest::__ReportToMaster
   $slave eval [list set TESTFILE [file join $TESTDIR $testfile]]
+  $slave eval [list ::tcltest::configure {*}$TEST_OPTIONS]
   $slave eval $GLOB_OPTIONS
   # invoke test suite:
   $slave eval {
