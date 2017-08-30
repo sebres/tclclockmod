@@ -2,7 +2,7 @@
 # travis-ci.org definition for tclclockmod build
 # https://travis-ci.org/sebres/tclclockmod/
 dist: trusty
-sudo: false
+sudo: true
 
 language: c
 
@@ -14,10 +14,15 @@ compiler:
 addons:
   apt:
     packages:
-      - tcl8.6
-      - tcl8.6-dev
+      #- tcl8.6
+      #- tcl8.6-dev
 
 before_script:
+  # ATM trusty has too old tcl version (8.6.0), thus install newest 8.6.7 ...
+  - sudo add-apt-repository -y "deb http://us.archive.ubuntu.com/ubuntu/ artful main universe"
+  - sudo apt-get update
+  - sudo apt-get install -t artful -y tcl8.6 tcl8.6-dev
+  # show version:
   - echo puts [info patchlevel] | tclsh
   - export BUILD_DIR=$(pwd)
   # prerequirements (tclconfig)
