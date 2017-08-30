@@ -1,4 +1,13 @@
 
+          _____   _  ___ _         _   __  __         _ 
+         |_   _|_| |/ __| |___  __| |_|  \/  |___  __| |
+           | |/ _| | (__| / _ \/ _| / / |\/| / _ \/ _` |
+           |_|\__|_|\___|_\___/\__|_\_\_|  |_\___/\__,_|
+           v.8.6.7-01                         2017/08/30
+                                                       
+
+## TclClockMod: the fastest, most powerful Tcl clock engine written in C
+
 WHAT IS THIS ?
 ==============
 
@@ -22,4 +31,32 @@ on your platform (Unix-like or Windows) go to the appropriate directory
 similar way the Tcl core does it also.
 
 
--EOF-
+Code status (CI):
+-----------------
+
+* travis-ci.org:
+  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg?branch=master)](https://travis-ci.org/sebres/tclclockmod) (master)
+  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg)](https://travis-ci.org/sebres/tclclockmod) (latest)
+
+
+Contact:
+--------
+
+### Bugs, feature requests, discussions?
+Use github [issue-tracker](https://github.com/sebres/tclclockmod).
+
+### You just appreciate this program:
+send kudos to the original author ([Sergey G. Brester](mailto:github@sebres.de)).
+
+Thanks:
+-------
+
+- FlightAware for the inspiration for me to write it (due to their bounty-program).
+- TCT and all other contributors for the great language (long live Tcl!).
+
+
+License:
+--------
+
+See the file "license.terms" for information on usage and redistribution of
+this file, and for a DISCLAIMER OF ALL WARRANTIES.
