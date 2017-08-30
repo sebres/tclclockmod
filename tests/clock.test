@@ -257,6 +257,10 @@ proc ::testClock::registry { cmd path key } {
 
 # Base test cases:
 
+test clock-0.0 "dummy broken test to check travis fails" {
+    error "Test travis"
+} ""
+
 test clock-0.1 "initial: auto-loading of ensemble and stubs on demand" no_tclclockmod {
     set i [interp create]; # because clock can be used somewhere, test it in new interp:
 
