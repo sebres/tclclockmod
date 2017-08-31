@@ -8,7 +8,7 @@
 
 ## TclClockMod: the fastest, most powerful Tcl clock engine written in C
 
-WHAT IS THIS ?
+What is this ?
 ==============
 
 This is the source distribution of the Tcl clock extension: the faster 
@@ -21,15 +21,32 @@ virtually anything you like with it, such as modifying it, redistributing
 it, and selling it either in whole or in part.  See the "license.terms"
 file in the top-level distribution directory for complete information.
 
-
-HOW TO COMPILE ?
-================
+How to compile ?
+----------------
 
 Only Unix-like and Windows platforms are supported at the moment. Depending
 on your platform (Unix-like or Windows) go to the appropriate directory
 (unix or win) and start with the README file. Macintosh platform is supported
 similar way the Tcl core does it also.
 
+How to use ?
+------------
+
+```tcl
+package require tclclockmod
+clock format -now
+```
+
+Tcl compatibility:
+=================
+
+Although this clock-ensemble version is almost 100% compatible (except of some 
+changes of the logic as regards the bug-fixing), but you should nevertheless
+test it with your application.
+
+The module is currently usable with latest Tcl 8.6th version (>= 8.6.6), but can
+be used also with previous versions since 8.6.0 (note that some packages like 
+"msgcat" should be upgraded in this case).
 
 Code status (CI):
 -----------------
