@@ -37,6 +37,9 @@ script:
   - make
   # load local library and execute local test cases:
   - tclsh $BUILD_DIR/tests/all.tcl
+  # test install:
+  - sudo make install
+  - echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
   # clean all
   - make clean
 
