@@ -26,7 +26,7 @@ before_script:
   - echo puts [info patchlevel] | tclsh
   - export BUILD_DIR=$(pwd)
   # prerequirements (tclconfig)
-  - git clone https://github.com/tcltk/tclconfig.git ./tclconfig
+  - if [ ! -d ./tclconfig ]; then git clone https://github.com/tcltk/tclconfig.git ./tclconfig; fi
 
 script:
   - echo "Build with $CC ..."
