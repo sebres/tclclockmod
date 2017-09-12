@@ -1,11 +1,11 @@
 .svn
 .gitattributes
 /autom4te.cache/
-/tclconfig/
 /win/Debug_*
 /win/Release_*
 /win/nmakehlp.obj
 /win/nmakehlp.exe
+/configure
 /unix/*.o
 /unix/*.so
 /unix/Makefile
