@@ -166,8 +166,7 @@ static const struct ClockCommand clockCommands[] = {
     {"milliseconds",	ClockMillisecondsObjCmd,TclCompileClockReadingCmd, INT2PTR(2)},
     {"scan",		ClockScanObjCmd,	TclCompileBasicMin1ArgCmd, NULL},
     {"seconds",		ClockSecondsObjCmd,	TclCompileClockReadingCmd, INT2PTR(3)},
-    {"configure",	  ClockConfigureObjCmd,			NULL, NULL},
-    {"Oldscan",		  TclClockOldscanObjCmd,		NULL, NULL},
+    {"configure",	ClockConfigureObjCmd,			NULL, NULL},
     {"ConvertLocalToUTC", ClockConvertlocaltoutcObjCmd,		NULL, NULL},
     {"GetDateFields",	  ClockGetdatefieldsObjCmd,		NULL, NULL},
     {"GetJulianDayFromEraYearMonthDay",
@@ -238,6 +237,7 @@ TclClockInit(
     data->gmtSetupTimeZoneUnnorm = NULL;
     data->gmtSetupTimeZone = NULL;
     data->gmtSetupTZData = NULL;
+    data->gmtTZName = NULL;
     data->lastSetupTimeZoneUnnorm = NULL;
     data->lastSetupTimeZone = NULL;
     data->lastSetupTZData = NULL;
@@ -310,6 +310,7 @@ ClockConfigureClear(
     Tcl_UnsetObjRef(data->gmtSetupTimeZoneUnnorm);
     Tcl_UnsetObjRef(data->gmtSetupTimeZone);
     Tcl_UnsetObjRef(data->gmtSetupTZData);
+    Tcl_UnsetObjRef(data->gmtTZName);
     Tcl_UnsetObjRef(data->lastSetupTimeZoneUnnorm);
     Tcl_UnsetObjRef(data->lastSetupTimeZone);
     Tcl_UnsetObjRef(data->lastSetupTZData);
@@ -1231,17 +1232,20 @@ ClockSetupTimeZone(
     Tcl_Obj *callargs[2];
 
     /* if cached (if already setup this one) */
-    if ( dataPtr->lastSetupTimeZone != NULL
-      && ( timezoneObj == dataPtr->lastSetupTimeZone
+    if ( timezoneObj == dataPtr->literals[LIT_GMT]
+      && dataPtr->gmtSetupTZData != NULL
+    ) {
+	return timezoneObj;
+    }
+    if ( ( timezoneObj == dataPtr->lastSetupTimeZone
 	|| timezoneObj == dataPtr->lastSetupTimeZoneUnnorm
-      )
+      ) && dataPtr->lastSetupTimeZone != NULL
     ) {
 	return dataPtr->lastSetupTimeZone;
     }
-    if ( dataPtr->prevSetupTimeZone != NULL
-      && ( timezoneObj == dataPtr->prevSetupTimeZone
+    if ( ( timezoneObj == dataPtr->prevSetupTimeZone
 	|| timezoneObj == dataPtr->prevSetupTimeZoneUnnorm
-      )
+      ) && dataPtr->prevSetupTimeZone != NULL
     ) {
 	return dataPtr->prevSetupTimeZone;
     }
@@ -1553,6 +1557,15 @@ ClockGetDateFields(
     GetGregorianEraYearDay(fields, changeover);
     GetMonthDay(fields);
     GetYearWeekDay(fields, changeover);
+
+    
+    /*
+     * Seconds of the day.
+     */
+    fields->secondOfDay = (int)(fields->localSeconds % SECONDS_PER_DAY);
+    if (fields->secondOfDay < 0) {
+	fields->secondOfDay += SECONDS_PER_DAY;
+    }
 
     return TCL_OK;
 }
@@ -2109,16 +2122,19 @@ ConvertUTCToLocal(
     Tcl_Obj **rowv;		/* Pointers to the rows */
 
     /* fast phase-out for shared GMT-object (don't need to convert UTC 2 UTC) */
-    if (timezoneObj == dataPtr->literals[LIT_GMT]
-	&& dataPtr->gmtSetupTZData != NULL
-    ) {
+    if (timezoneObj == dataPtr->literals[LIT_GMT]) {
 	fields->localSeconds = fields->seconds;
 	fields->tzOffset = 0;
-	if ( TclListObjGetElements(interp, dataPtr->gmtSetupTZData, &rowc, &rowv) != TCL_OK
-	  || Tcl_ListObjIndex(interp, rowv[0], 3, &fields->tzName) != TCL_OK) {
-	    return TCL_ERROR;
+	if (dataPtr->gmtTZName == NULL) {
+	    Tcl_Obj *tzName;
+	    tzdata = ClockGetTZData(clientData, interp, timezoneObj);
+	    if ( TclListObjGetElements(interp, tzdata, &rowc, &rowv) != TCL_OK
+	      || Tcl_ListObjIndex(interp, rowv[0], 3, &tzName) != TCL_OK) {
+		return TCL_ERROR;
+	    }
+	    Tcl_SetObjRef(dataPtr->gmtTZName, tzName);
 	}
-	Tcl_IncrRefCount(fields->tzName);
+	Tcl_SetObjRef(fields->tzName, dataPtr->gmtTZName);
 	return TCL_OK;
     }
 
@@ -3278,9 +3294,8 @@ ClockParseFmtScnArgs(
     if (gmtFlag) {
 	opts->timezoneObj = dataPtr->literals[LIT_GMT];
     }
-
+    else
     /* If time zone not specified use system time zone */
-
     if ( opts->timezoneObj == NULL
       || TclGetString(opts->timezoneObj) == NULL
       || opts->timezoneObj->length == 0

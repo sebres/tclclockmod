@@ -332,6 +332,7 @@ typedef struct ClockClientData {
     Tcl_Obj *gmtSetupTimeZoneUnnorm;
     Tcl_Obj *gmtSetupTimeZone;
     Tcl_Obj *gmtSetupTZData;
+    Tcl_Obj *gmtTZName;
     Tcl_Obj *lastSetupTimeZoneUnnorm;
     Tcl_Obj *lastSetupTimeZone;
     Tcl_Obj *lastSetupTZData;
@@ -435,7 +436,11 @@ struct ClockScanToken {
 };
 
 
-#define MIN_FMT_RESULT_BLOCK_ALLOC 200
+#define MIN_FMT_RESULT_BLOCK_ALLOC 80
+#define MIN_FMT_RESULT_BLOCK_DELTA 0
+/* Maximal permitted threshold (buffer size > result size) in percent, 
+ * to directly return the buffer without reallocate */
+#define MAX_FMT_RESULT_THRESHOLD   2
 
 typedef struct DateFormat {
     char *resMem;
@@ -494,6 +499,7 @@ struct ClockFmtScnStorage {
     ClockFmtScnStorage	*nextPtr;
     ClockFmtScnStorage	*prevPtr;
 #endif
+    size_t		 fmtMinAlloc;
 #if 0
    +Tcl_HashEntry    hashEntry		/* ClockFmtScnStorage is a derivate of Tcl_HashEntry,
 					 * stored by offset +sizeof(self) */

@@ -865,9 +865,9 @@ ClockLocalizeFormat(
 	/* check special case - format object is not localizable */
 	if (valObj == opts->formatObj) {
 	    /* mark it as unlocalizable, by setting self as key (without refcount incr) */
-	    if (opts->formatObj->typePtr == &ClockFmtObjType) {
-		Tcl_UnsetObjRef(ObjLocFmtKey(opts->formatObj));
-		ObjLocFmtKey(opts->formatObj) = opts->formatObj;
+	    if (valObj->typePtr == &ClockFmtObjType) {
+		Tcl_UnsetObjRef(ObjLocFmtKey(valObj));
+		ObjLocFmtKey(valObj) = valObj;
 	    }
 	}
     }
@@ -1920,15 +1920,22 @@ ClockGetOrParseScanFormat(
     Tcl_Obj    *formatObj)	/* Format container */
 {
     ClockFmtScnStorage *fss;
-    ClockScanToken     *tok;
 
     fss = Tcl_GetClockFrmScnFromObj(interp, formatObj);
     if (fss == NULL) {
 	return NULL;
     }
 
-    /* if first time scanning - tokenize format */
+    /* if format (scnTok) already tokenized */
+    if (fss->scnTok != NULL) {
+	return fss;
+    }
+
+    Tcl_MutexLock(&ClockFmtMutex);
+
+    /* first time scanning - tokenize format */
     if (fss->scnTok == NULL) {
+	ClockScanToken *tok, *scnTok;
 	unsigned int tokCnt;
 	register const char *p, *e, *cp;
 
@@ -1940,9 +1947,7 @@ ClockGetOrParseScanFormat(
 
 	fss->scnSpaceCount = 0;
 
-	Tcl_MutexLock(&ClockFmtMutex);
-
-	fss->scnTok = tok = ckalloc(sizeof(*tok) * fss->scnTokC);
+	scnTok = tok = ckalloc(sizeof(*tok) * fss->scnTokC);
 	memset(tok, 0, sizeof(*(tok)));
 	tokCnt = 1;
 	while (p < e) {
@@ -1964,7 +1969,7 @@ ClockGetOrParseScanFormat(
 		    tok->map = &ScnWordTokenMap;
 		    tok->tokWord.start = p;
 		    tok->tokWord.end = p+1;
-		    AllocTokenInChain(tok, fss->scnTok, fss->scnTokC); tokCnt++;
+		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		    p++;
 		    continue;
 		break;
@@ -2003,10 +2008,10 @@ ClockGetOrParseScanFormat(
 		tok->tokWord.start = p;
 
 		/* calculate look ahead value by standing together tokens */
-		if (tok > fss->scnTok) {
+		if (tok > scnTok) {
 		    ClockScanToken     *prevTok = tok - 1;
 
-		    while (prevTok >= fss->scnTok) {
+		    while (prevTok >= scnTok) {
 			if (prevTok->map->type != tok->map->type) {
 			    break;
 			}
@@ -2025,7 +2030,7 @@ ClockGetOrParseScanFormat(
 		}
 
 		/* next token */
-		AllocTokenInChain(tok, fss->scnTok, fss->scnTokC); tokCnt++;
+		AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		p++;
 		continue;
 	    }
@@ -2040,7 +2045,7 @@ ClockGetOrParseScanFormat(
 		/* increase space count used in format */
 		fss->scnSpaceCount++;
 		/* next token */
-		AllocTokenInChain(tok, fss->scnTok, fss->scnTokC); tokCnt++;
+		AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		p++;
 		continue;
 	    break;
@@ -2048,14 +2053,14 @@ ClockGetOrParseScanFormat(
 word_tok:
 	    if (1) {
 		ClockScanToken	 *wordTok = tok;
-		if (tok > fss->scnTok && (tok-1)->map == &ScnWordTokenMap) {
+		if (tok > scnTok && (tok-1)->map == &ScnWordTokenMap) {
 		    wordTok = tok-1;
 		}
 		/* new word token */
 		if (wordTok == tok) {
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &ScnWordTokenMap;
-		    AllocTokenInChain(tok, fss->scnTok, fss->scnTokC); tokCnt++;
+		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		}
 		if (isspace(UCHAR(*p))) {
 		    fss->scnSpaceCount++;
@@ -2068,11 +2073,11 @@ word_tok:
 	}
 
 	/* calculate end distance value for each tokens */
-	if (tok > fss->scnTok) {
+	if (tok > scnTok) {
 	    unsigned int	endDist = 0;
 	    ClockScanToken     *prevTok = tok-1;
 
-	    while (prevTok >= fss->scnTok) {
+	    while (prevTok >= scnTok) {
 		prevTok->endDistance = endDist;
 		if (prevTok->map->type != CTOKT_WORD) {
 		    endDist += prevTok->map->minSize;
@@ -2086,15 +2091,17 @@ word_tok:
 	/* correct count of real used tokens and free mem if desired
 	 * (1 is acceptable delta to prevent memory fragmentation) */
 	if (fss->scnTokC > tokCnt + (CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE / 2)) {
-	    if ( (tok = ckrealloc(fss->scnTok, tokCnt * sizeof(*tok))) != NULL ) {
-		fss->scnTok = tok;
+	    if ( (tok = ckrealloc(scnTok, tokCnt * sizeof(*tok))) != NULL ) {
+		scnTok = tok;
 	    }
 	}
-	fss->scnTokC = tokCnt;
 
-done:
-	Tcl_MutexUnlock(&ClockFmtMutex);
+	/* now we're ready - assign now to storage (note the threaded race condition) */
+	fss->scnTok = scnTok;
+	fss->scnTokC = tokCnt;
     }
+done:
+    Tcl_MutexUnlock(&ClockFmtMutex);
 
     return fss;
 }
@@ -2408,14 +2415,27 @@ overflow:
 
 not_match:
 
+  #if 1
     Tcl_SetObjResult(opts->interp, Tcl_NewStringObj("input string does not match supplied format",
 	-1));
+  #else
+	/* to debug where exactly scan breaks */
+    Tcl_SetObjResult(opts->interp, Tcl_ObjPrintf(
+	"input string \"%s\" does not match supplied format \"%s\","
+	" locale \"%s\" - token \"%s\"",
+	info->dateStart, HashEntry4FmtScn(fss)->key.string,
+        Tcl_GetString(opts->localeObj), 
+        tok && tok->tokWord.start ? tok->tokWord.start : "NULL"));
+  #endif
     Tcl_SetErrorCode(opts->interp, "CLOCK", "badInputString", NULL);
 
 done:
 
     return ret;
 }
+
+#define FrmResultIsAllocated(dateFmt) \
+    (dateFmt->resEnd - dateFmt->resMem > MIN_FMT_RESULT_BLOCK_ALLOC)
 
 static inline int
 FrmResultAllocate(
@@ -2425,10 +2445,20 @@ FrmResultAllocate(
     int needed = dateFmt->output + len - dateFmt->resEnd;
     if (needed >= 0) { /* >= 0 - regards NTS zero */
 	int newsize = dateFmt->resEnd - dateFmt->resMem
-		    + needed + MIN_FMT_RESULT_BLOCK_ALLOC;
-	char *newRes = ckrealloc(dateFmt->resMem, newsize);
-	if (newRes == NULL) {
-	    return TCL_ERROR;
+		    + needed + MIN_FMT_RESULT_BLOCK_ALLOC*2;
+	char *newRes;
+	/* differentiate between stack and memory */
+	if (!FrmResultIsAllocated(dateFmt)) {
+	    newRes = ckalloc(newsize);
+	    if (newRes == NULL) {
+		return TCL_ERROR;
+	    }
+	    memcpy(newRes, dateFmt->resMem, dateFmt->output - dateFmt->resMem);
+	} else {
+	    newRes = ckrealloc(dateFmt->resMem, newsize);
+	    if (newRes == NULL) {
+		return TCL_ERROR;
+	    }
 	}
 	dateFmt->output = newRes + (dateFmt->output - dateFmt->resMem);
 	dateFmt->resMem = newRes;
@@ -2830,15 +2860,22 @@ ClockGetOrParseFmtFormat(
     Tcl_Obj    *formatObj)	/* Format container */
 {
     ClockFmtScnStorage *fss;
-    ClockFormatToken   *tok;
 
     fss = Tcl_GetClockFrmScnFromObj(interp, formatObj);
     if (fss == NULL) {
 	return NULL;
     }
 
-    /* if first time scanning - tokenize format */
+    /* if format (fmtTok) already tokenized */
+    if (fss->fmtTok != NULL) {
+	return fss;
+    }
+
+    Tcl_MutexLock(&ClockFmtMutex);
+
+    /* first time formatting - tokenize format */
     if (fss->fmtTok == NULL) {
+	ClockFormatToken *tok, *fmtTok;
 	unsigned int tokCnt;
 	register const char *p, *e, *cp;
 
@@ -2848,9 +2885,7 @@ ClockGetOrParseFmtFormat(
 	/* estimate token count by % char and format length */
 	fss->fmtTokC = EstimateTokenCount(p, e);
 
-	Tcl_MutexLock(&ClockFmtMutex);
-
-	fss->fmtTok = tok = ckalloc(sizeof(*tok) * fss->fmtTokC);
+	fmtTok = tok = ckalloc(sizeof(*tok) * fss->fmtTokC);
 	memset(tok, 0, sizeof(*(tok)));
 	tokCnt = 1;
 	while (p < e) {
@@ -2872,7 +2907,7 @@ ClockGetOrParseFmtFormat(
 		    tok->map = &FmtWordTokenMap;
 		    tok->tokWord.start = p;
 		    tok->tokWord.end = p+1;
-		    AllocTokenInChain(tok, fss->fmtTok, fss->fmtTokC); tokCnt++;
+		    AllocTokenInChain(tok, fmtTok, fss->fmtTokC); tokCnt++;
 		    p++;
 		    continue;
 		break;
@@ -2910,7 +2945,7 @@ ClockGetOrParseFmtFormat(
 		tok->map = &fmtMap[cp - mapIndex];
 		tok->tokWord.start = p;
 		/* next token */
-		AllocTokenInChain(tok, fss->fmtTok, fss->fmtTokC); tokCnt++;
+		AllocTokenInChain(tok, fmtTok, fss->fmtTokC); tokCnt++;
 		p++;
 		continue;
 	    }
@@ -2919,13 +2954,13 @@ ClockGetOrParseFmtFormat(
 word_tok:
 	    if (1) {
 		ClockFormatToken *wordTok = tok;
-		if (tok > fss->fmtTok && (tok-1)->map == &FmtWordTokenMap) {
+		if (tok > fmtTok && (tok-1)->map == &FmtWordTokenMap) {
 		    wordTok = tok-1;
 		}
 		if (wordTok == tok) {
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &FmtWordTokenMap;
-		    AllocTokenInChain(tok, fss->fmtTok, fss->fmtTokC); tokCnt++;
+		    AllocTokenInChain(tok, fmtTok, fss->fmtTokC); tokCnt++;
 		}
 		p = TclUtfNext(p);
 		wordTok->tokWord.end = p;
@@ -2937,15 +2972,17 @@ word_tok:
 	/* correct count of real used tokens and free mem if desired
 	 * (1 is acceptable delta to prevent memory fragmentation) */
 	if (fss->fmtTokC > tokCnt + (CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE / 2)) {
-	    if ( (tok = ckrealloc(fss->fmtTok, tokCnt * sizeof(*tok))) != NULL ) {
-		fss->fmtTok = tok;
+	    if ( (tok = ckrealloc(fmtTok, tokCnt * sizeof(*tok))) != NULL ) {
+		fmtTok = tok;
 	    }
 	}
-	fss->fmtTokC = tokCnt;
 
-done:
-	Tcl_MutexUnlock(&ClockFmtMutex);
+	/* now we're ready - assign now to storage (note the threaded race condition) */
+	fss->fmtTok = fmtTok;
+	fss->fmtTokC = tokCnt;
     }
+done:
+    Tcl_MutexUnlock(&ClockFmtMutex);
 
     return fss;
 }
@@ -2961,6 +2998,7 @@ ClockFormat(
     ClockFmtScnStorage	*fss;
     ClockFormatToken	*tok;
     ClockFormatTokenMap *map;
+    char resMem[MIN_FMT_RESULT_BLOCK_ALLOC];
 
     /* get localized format */
     if (ClockLocalizeFormat(opts) == NULL) {
@@ -2973,19 +3011,17 @@ ClockFormat(
 	return TCL_ERROR;
     }
 
-    /* prepare formatting */
-    dateFmt->date.secondOfDay = (int)(dateFmt->date.localSeconds % SECONDS_PER_DAY);
-    if (dateFmt->date.secondOfDay < 0) {
-	dateFmt->date.secondOfDay += SECONDS_PER_DAY;
-    }
-
     /* result container object */
-    dateFmt->resMem = ckalloc(MIN_FMT_RESULT_BLOCK_ALLOC);
-    if (dateFmt->resMem == NULL) {
-	return TCL_ERROR;
+    dateFmt->resMem = resMem;
+    dateFmt->resEnd = dateFmt->resMem + sizeof(resMem);
+    if (fss->fmtMinAlloc > sizeof(resMem)) {
+	dateFmt->resMem = ckalloc(fss->fmtMinAlloc);
+	dateFmt->resEnd = dateFmt->resMem + fss->fmtMinAlloc;
+	if (dateFmt->resMem == NULL) {
+	    return TCL_ERROR;
+	}
     }
     dateFmt->output = dateFmt->resMem;
-    dateFmt->resEnd = dateFmt->resMem + MIN_FMT_RESULT_BLOCK_ALLOC;
     *dateFmt->output = '\0';
 
     /* do format each token */
@@ -3082,18 +3118,37 @@ ClockFormat(
 
 error:
 
-    ckfree(dateFmt->resMem);
+    if (dateFmt->resMem != resMem) {
+	ckfree(dateFmt->resMem);
+    }
     dateFmt->resMem = NULL;
 
 done:
 
     if (dateFmt->resMem) {
+    	size_t size;
 	Tcl_Obj * result = Tcl_NewObj();
 	result->length = dateFmt->output - dateFmt->resMem;
-	result->bytes = NULL;
-	result->bytes = ckrealloc(dateFmt->resMem, result->length+1);
-	if (result->bytes == NULL) {
+	size = result->length+1;
+	if (dateFmt->resMem == resMem) {
+	    result->bytes = ckalloc(size);
+	    if (result->bytes == NULL) {
+		return TCL_ERROR;
+	    }
+	    memcpy(result->bytes, dateFmt->resMem, size);
+	} else if ((dateFmt->resEnd - dateFmt->resMem) / size > MAX_FMT_RESULT_THRESHOLD) {
+	    result->bytes = ckrealloc(dateFmt->resMem, size);
+	    if (result->bytes == NULL) {
+		result->bytes = dateFmt->resMem;
+	    }
+	} else {
 	    result->bytes = dateFmt->resMem;
+	}
+	/* save last used buffer length */
+	if ( dateFmt->resMem != resMem
+	  && fss->fmtMinAlloc < size + MIN_FMT_RESULT_BLOCK_DELTA
+	) {
+	    fss->fmtMinAlloc = size + MIN_FMT_RESULT_BLOCK_DELTA;
 	}
 	result->bytes[result->length] = '\0';
 	Tcl_SetObjResult(opts->interp, result);
