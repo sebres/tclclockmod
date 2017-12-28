@@ -37,6 +37,17 @@ proc ::tcltest::__ReportToMaster {total passed skipped failed skippedLst args} {
   ::tcltest::__ReportSummary
   ::tcltest::ReportedFromSlave $total $passed $skipped $failed $skippedLst {*}$args
 }
+proc ::tcltest::__SortFiles {lst} {
+  set slst {}
+  foreach f $lst {
+    lappend slst [list [file rootname $f] $f]
+  }
+  set lst {}
+  foreach f [lsort -dictionary -index 0 $slst] {
+    lappend lst [lindex $f 1]
+  }
+  return $lst
+}
 
 set TESTDIR [file normalize [file dirname [info script]]]
 # switch to temp directory:
@@ -54,7 +65,7 @@ set GLOB_OPTIONS {
   clock format -now -format "%Es" -gmt 1
   puts [outputChannel] "  Test ..."
 }
-foreach testfile [lsort -dictionary [::tcltest::GetMatchingFiles $TESTDIR]] {
+foreach testfile [::tcltest::__SortFiles [::tcltest::GetMatchingFiles $TESTDIR]] {
   # prepare single run:
   set ::TestSummary(File) [file root [file tail $testfile]]
   incr ::tcltest::numTestFiles
