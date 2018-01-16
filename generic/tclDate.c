@@ -558,11 +558,11 @@ static const yytype_uint16 yyrline[] =
 {
        0,   160,   160,   161,   162,   165,   168,   171,   174,   177,
      180,   183,   187,   192,   195,   201,   207,   215,   219,   223,
-     227,   231,   235,   241,   242,   245,   249,   253,   257,   261,
-     265,   271,   275,   280,   285,   290,   295,   299,   304,   308,
-     313,   320,   324,   330,   339,   347,   355,   364,   374,   388,
-     393,   396,   399,   402,   405,   408,   411,   416,   419,   424,
-     428,   432,   438,   441,   446,   464,   467
+     227,   231,   235,   241,   242,   245,   250,   255,   260,   265,
+     270,   277,   281,   286,   291,   296,   301,   305,   310,   314,
+     319,   326,   330,   336,   345,   353,   361,   370,   380,   394,
+     399,   402,   405,   408,   411,   414,   417,   422,   425,   430,
+     434,   438,   444,   447,   452,   470,   473
 };
 #endif
 
@@ -1718,7 +1718,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = 1;
-	    yyDayNumber = (yyvsp[(1) - (1)].Number);
+	    yyDayOfWeek = (yyvsp[(1) - (1)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 
@@ -1726,7 +1727,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = 1;
-	    yyDayNumber = (yyvsp[(1) - (2)].Number);
+	    yyDayOfWeek = (yyvsp[(1) - (2)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 
@@ -1734,7 +1736,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = (yyvsp[(1) - (2)].Number);
-	    yyDayNumber = (yyvsp[(2) - (2)].Number);
+	    yyDayOfWeek = (yyvsp[(2) - (2)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 
@@ -1742,7 +1745,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = (yyvsp[(1) - (4)].Number) * (yyvsp[(3) - (4)].Number);
-	    yyDayNumber = (yyvsp[(4) - (4)].Number);
+	    yyDayOfWeek = (yyvsp[(4) - (4)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 
@@ -1750,7 +1754,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = (yyvsp[(1) - (3)].Number) * (yyvsp[(2) - (3)].Number);
-	    yyDayNumber = (yyvsp[(3) - (3)].Number);
+	    yyDayOfWeek = (yyvsp[(3) - (3)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 
@@ -1758,7 +1763,8 @@ yyreduce:
 
     {
 	    yyDayOrdinal = 2;
-	    yyDayNumber = (yyvsp[(2) - (2)].Number);
+	    yyDayOfWeek = (yyvsp[(2) - (2)].Number);
+	    info->flags |= CLF_DAYOFWEEK;
 	;}
     break;
 

@@ -81,8 +81,9 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_DAYOFYEAR	       (1 << 8)
 #define CLF_MONTH	       (1 << 9)
 #define CLF_YEAR	       (1 << 10)
+#define CLF_DAYOFWEEK	       (1 << 11)
 #define CLF_ISO8601YEAR	       (1 << 12)
-#define CLF_ISO8601	       (1 << 13)
+#define CLF_ISO8601WEAK	       (1 << 13)
 #define CLF_ISO8601CENTURY     (1 << 14)
 #define CLF_SIGNED	       (1 << 15)
 /* On demand (lazy) assemble flags */
@@ -91,7 +92,8 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_ASSEMBLE_SECONDS   (1 << 30) /* assemble localSeconds (and seconds at end) */
 
 #define CLF_DATE	       (CLF_JULIANDAY | CLF_DAYOFMONTH | CLF_DAYOFYEAR | \
-				CLF_MONTH | CLF_YEAR | CLF_ISO8601YEAR | CLF_ISO8601)
+				CLF_MONTH | CLF_YEAR | CLF_ISO8601YEAR | \
+				CLF_DAYOFWEEK | CLF_ISO8601WEAK)
 
 /*
  * Enumeration of the string literals used in [clock]
@@ -194,7 +196,8 @@ typedef struct TclDateFields {
     int iso8601Week;		/* ISO8601 week number */
     int dayOfWeek;		/* Day of the week */
     int hour;			/* Hours of day (in-between time only calculation) */
-    int minutes;		/* Minutes of day (in-between time only calculation) */
+    int minutes;		/* Minutes of hour (in-between time only calculation) */
+    int secondOfMin;		/* Seconds of minute (in-between time only calculation) */
     int secondOfDay;		/* Seconds of day (in-between time only calculation) */
 
     /* Non cacheable fields:	 */
@@ -238,7 +241,6 @@ typedef struct DateInfo {
     int dateHaveOrdinalMonth;
 
     int dateDayOrdinal;
-    int dateDayNumber;
     int dateHaveDay;
 
     int *dateRelPointer;
@@ -260,11 +262,12 @@ typedef struct DateInfo {
 
 #define yyHour	    (info->date.hour)
 #define yyMinutes   (info->date.minutes)
-#define yySeconds   (info->date.secondOfDay)
+#define yySeconds   (info->date.secondOfMin)
+#define yySecondOfDay (info->date.secondOfDay)
 
 #define yyDSTmode   (info->dateDSTmode)
 #define yyDayOrdinal	(info->dateDayOrdinal)
-#define yyDayNumber (info->dateDayNumber)
+#define yyDayOfWeek (info->date.dayOfWeek)
 #define yyMonthOrdinalIncr  (info->dateMonthOrdinalIncr)
 #define yyMonthOrdinal	(info->dateMonthOrdinal)
 #define yyHaveDate  (info->dateHaveDate)
@@ -292,6 +295,7 @@ ClockInitDateInfo(DateInfo *info) {
  * Structure containing the command arguments supplied to [clock format] and [clock scan]
  */
 
+#define CLF_VALIDATE	(1 << 2)
 #define CLF_EXTENDED	(1 << 4)
 #define CLF_STRICT	(1 << 8)
 #define CLF_LOCALE_USED (1 << 15)
@@ -327,6 +331,8 @@ typedef struct ClockClientData {
     size_t lastTZEpoch;
     int currentYearCentury;
     int yearOfCenturySwitch;
+    int validMinYear;
+    int validMaxYear;
     Tcl_Obj *systemTimeZone;
     Tcl_Obj *systemSetupTZData;
     Tcl_Obj *gmtSetupTimeZoneUnnorm;
@@ -377,6 +383,9 @@ typedef struct ClockClientData {
 	/* values */
 	int	    tzOffset;
     } local2utc;
+
+    int defFlags;		    /* Default flags (from configure), ATM
+				     * only CLF_VALIDATE supported */
 } ClockClientData;
 
 #define ClockDefaultYearCentury 2000
