@@ -50,13 +50,14 @@ proc ::tcltest::__SortFiles {lst} {
 }
 
 set TESTDIR [file normalize [file dirname [info script]]]
-# switch to temp directory:
-if {[catch {
-  cd $::env(TEMP)
-}]} {
-  cd /tmp/
+if {![::tcl::pkgconfig get debug]} { # allow to load lib from current directory in debug:
+  # switch to temp directory:
+  if {[catch {
+    cd $::env(TEMP)
+  }]} {
+    cd /tmp/
+  }
 }
-
 set GLOB_OPTIONS {
   puts [outputChannel] "  Load library ..."
   # load library:
