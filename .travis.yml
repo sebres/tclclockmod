@@ -35,6 +35,8 @@ script:
   - cd unix
   - ../configure --with-tcl=/usr/lib/tcl8.6
   - make
+  # current time and time-zone:
+  - echo $TZ; timedatectl status
   # load local library and execute local test cases:
   - tclsh $BUILD_DIR/tests/all.tcl
   # test install:
