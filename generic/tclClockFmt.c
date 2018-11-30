@@ -1766,10 +1766,10 @@ static ClockScanTokenMap ScnSTokenMap[] = {
     {CTOKT_INT, CLF_TIME, 0, 1, 2, TclOffset(DateInfo, date.minutes),
 	NULL},
     /* %S */
-    {CTOKT_INT, CLF_TIME, 0, 1, 2, TclOffset(DateInfo, date.secondOfDay),
+    {CTOKT_INT, CLF_TIME, 0, 1, 2, TclOffset(DateInfo, date.secondOfMin),
 	NULL},
     /* %p %P */
-    {CTOKT_PARSER, CLF_ISO8601, 0, 0, 0xffff, 0,
+    {CTOKT_PARSER, 0, 0, 0, 0xffff, 0,
 	ClockScnToken_amPmInd_Proc, NULL},
     /* %J */
     {CTOKT_WIDE, CLF_JULIANDAY, 0, 1, 0xffff, TclOffset(DateInfo, date.julianDay),
@@ -1781,16 +1781,16 @@ static ClockScanTokenMap ScnSTokenMap[] = {
     {CTOKT_INT, CLF_CENTURY|CLF_ISO8601CENTURY, 0, 1, 2, TclOffset(DateInfo, dateCentury),
 	NULL},
     /* %g */
-    {CTOKT_INT, CLF_ISO8601YEAR | CLF_ISO8601, 0, 2, 2, TclOffset(DateInfo, date.iso8601Year),
+    {CTOKT_INT, CLF_ISO8601YEAR, 0, 2, 2, TclOffset(DateInfo, date.iso8601Year),
 	NULL},
     /* %G */
-    {CTOKT_INT, CLF_ISO8601YEAR | CLF_ISO8601 | CLF_ISO8601CENTURY, 0, 4, 4, TclOffset(DateInfo, date.iso8601Year),
+    {CTOKT_INT, CLF_ISO8601YEAR | CLF_ISO8601CENTURY, 0, 4, 4, TclOffset(DateInfo, date.iso8601Year),
 	NULL},
     /* %V */
-    {CTOKT_INT, CLF_ISO8601, 0, 1, 2, TclOffset(DateInfo, date.iso8601Week),
+    {CTOKT_INT, CLF_ISO8601WEAK, 0, 1, 2, TclOffset(DateInfo, date.iso8601Week),
 	NULL},
     /* %a %A %u %w */
-    {CTOKT_PARSER, CLF_ISO8601, 0, 0, 0xffff, 0,
+    {CTOKT_PARSER, CLF_DAYOFWEEK, 0, 0, 0xffff, 0,
 	ClockScnToken_DayOfWeek_Proc, NULL},
     /* %z %Z */
     {CTOKT_PARSER, CLF_OPTIONAL, 0, 0, 0xffff, 0,
@@ -1851,10 +1851,10 @@ static ClockScanTokenMap ScnOTokenMap[] = {
     {CTOKT_PARSER, CLF_TIME, 0, 0, 0xffff, TclOffset(DateInfo, date.minutes),
 	ClockScnToken_LocaleListMatcher_Proc, (void *)MCLIT_LOCALE_NUMERALS},
     /* %OS */
-    {CTOKT_PARSER, CLF_TIME, 0, 0, 0xffff, TclOffset(DateInfo, date.secondOfDay),
+    {CTOKT_PARSER, CLF_TIME, 0, 0, 0xffff, TclOffset(DateInfo, date.secondOfMin),
 	ClockScnToken_LocaleListMatcher_Proc, (void *)MCLIT_LOCALE_NUMERALS},
     /* %Ou Ow */
-    {CTOKT_PARSER, CLF_ISO8601, 0, 0, 0xffff, 0,
+    {CTOKT_PARSER, CLF_DAYOFWEEK, 0, 0, 0xffff, 0,
 	ClockScnToken_DayOfWeek_Proc, (void *)MCLIT_LOCALE_NUMERALS},
 };
 static const char *ScnOTokenMapAliasIndex[2] = {
@@ -1862,11 +1862,10 @@ static const char *ScnOTokenMapAliasIndex[2] = {
     "dHHHu"
 };
 
-static const char *ScnSpecTokenMapIndex =
-    " ";
-static ClockScanTokenMap ScnSpecTokenMap[] = {
-    {CTOKT_SPACE,  0, 0, 1, 1, 0,
-	NULL},
+/* Token map reserved for CTOKT_SPACE */
+static ClockScanTokenMap ScnSpaceTokenMap = {
+    CTOKT_SPACE,  0, 0, 1, 1, 0,
+	NULL,
 };
 
 static ClockScanTokenMap ScnWordTokenMap = {
@@ -2035,21 +2034,20 @@ ClockGetOrParseScanFormat(
 		continue;
 	    }
 	    break;
-	    case ' ':
-		cp = strchr(ScnSpecTokenMapIndex, *p);
-		if (!cp || *cp == '\0') {
-		    p--;
-		    goto word_tok;
+	    default:
+	    if ( *p == ' ' || isspace(UCHAR(*p)) ) {
+		tok->map = &ScnSpaceTokenMap;
+		tok->tokWord.start = p++;
+		while (p < e && isspace(UCHAR(*p))) {
+		    p++;
 		}
-		tok->map = &ScnSpecTokenMap[cp - ScnSpecTokenMapIndex];
+		tok->tokWord.end = p;
 		/* increase space count used in format */
 		fss->scnSpaceCount++;
 		/* next token */
 		AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
-		p++;
 		continue;
-	    break;
-	    default:
+	    }
 word_tok:
 	    if (1) {
 		ClockScanToken	 *wordTok = tok;
@@ -2151,14 +2149,18 @@ ClockScan(
     x = end;
     while (p < end) {
 	if (isspace(UCHAR(*p))) {
-	    x = p++;
+	    x = ++p; /* after first space in space block */
 	    yySpaceCount++;
+	    while (p < end && isspace(UCHAR(*p))) {
+		p++;
+		yySpaceCount++;
+	    }
 	    continue;
 	}
 	x = end;
 	p++;
     }
-    /* ignore spaces at end */
+    /* ignore more as 1 space at end */
     yySpaceCount -= (end - x);
     end = x;
     /* ignore mandatory spaces used in format */
@@ -2247,9 +2249,10 @@ ClockScan(
 	    };
 	    /* decrement count for possible spaces in match */
 	    while (p < yyInput) {
-		if (isspace(UCHAR(*p++))) {
+		if (isspace(UCHAR(*p))) {
 		    yySpaceCount--;
 		}
+		p++;
 	    }
 	    p = yyInput;
 	    flags = (flags & ~map->clearFlags) | map->flags;
@@ -2260,7 +2263,8 @@ ClockScan(
 		/* unmatched -> error */
 		goto not_match;
 	    }
-	    yySpaceCount--;
+	    /* don't decrement yySpaceCount by regular (first expected space), 
+	     * already considered above with fss->scnSpaceCount */;
 	    p++;
 	    while (p < end && isspace(UCHAR(*p))) {
 		yySpaceCount--;
@@ -2290,14 +2294,26 @@ ClockScan(
     }
     /* check end was reached */
     if (p < end) {
+	/* in non-strict mode bypass spaces at end of input */
+	if ( !(opts->flags & CLF_STRICT) && isspace(UCHAR(*p)) ) {
+	    p++;
+	    while (p < end && isspace(UCHAR(*p))) {
+		p++;
+	    }
+	}
 	/* something after last token - wrong format */
-	goto not_match;
+	if (p < end) {
+	    goto not_match;
+	}
     }
     /* end of string, check only optional tokens at end, otherwise - not match */
     while (tok->map != NULL) {
 	if (!(opts->flags & CLF_STRICT) && (tok->map->type == CTOKT_SPACE)) {
 	    tok++;
-	    if (tok->map == NULL) break;
+	    if (tok->map == NULL) {
+		/* no tokens anymore - trailing spaces are mandatory */
+		goto not_match;
+	    }
 	}
 	if (!(tok->map->flags & CLF_OPTIONAL)) {
 	    goto not_match;
@@ -2324,23 +2340,29 @@ ClockScan(
 		    case (CLF_DAYOFYEAR):
 		    /* ddd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601;
+			flags &= ~CLF_ISO8601WEAK;
 		    }
 		    break;
 		    case (CLF_MONTH|CLF_DAYOFYEAR|CLF_DAYOFMONTH):
 		    /* both available: mmdd over ddd */
-		    flags &= ~CLF_DAYOFYEAR;
 		    case (CLF_MONTH|CLF_DAYOFMONTH):
 		    case (CLF_DAYOFMONTH):
 		    /* mmdd / dd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601;
+			flags &= ~CLF_ISO8601WEAK;
 		    }
 		    break;
+		    /* neither mmdd nor ddd available */
+		    case 0:
+		    /* but we have day of the week, which can be used */
+		    if (flags & CLF_DAYOFWEEK) {
+			/* prefer week based calculation of julianday */
+			flags |= CLF_ISO8601WEAK;
+		    }
 		}
 
 		/* YearWeekDay below YearMonthDay */
-		if ( (flags & CLF_ISO8601)
+		if ( (flags & CLF_ISO8601WEAK)
 		  && ( (flags & (CLF_YEAR|CLF_DAYOFYEAR)) == (CLF_YEAR|CLF_DAYOFYEAR)
 		    || (flags & (CLF_YEAR|CLF_DAYOFMONTH|CLF_MONTH)) == (CLF_YEAR|CLF_DAYOFMONTH|CLF_MONTH)
 		  )
@@ -2348,16 +2370,16 @@ ClockScan(
 		    /* yy precedence below yyyy */
 		    if (!(flags & CLF_ISO8601CENTURY) && (flags & CLF_CENTURY)) {
 			/* normally precedence of ISO is higher, but no century - so put it down */
-			flags &= ~CLF_ISO8601;
+			flags &= ~CLF_ISO8601WEAK;
 		    }
 		    else
 		    /* yymmdd or yyddd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601;
+			flags &= ~CLF_ISO8601WEAK;
 		    }
 		}
 
-		if (!(flags & CLF_ISO8601)) {
+		if ( (flags & CLF_YEAR) ) {
 		    if (yyYear < 100) {
 			if (!(flags & CLF_CENTURY)) {
 			    if (yyYear >= dataPtr->yearOfCenturySwitch) {
@@ -2368,7 +2390,13 @@ ClockScan(
 			    yyYear += info->dateCentury * 100;
 			}
 		    }
-		} else {
+		} 
+		if ( (flags & (CLF_ISO8601WEAK|CLF_ISO8601YEAR)) ) {
+		    if ((flags & (CLF_ISO8601YEAR|CLF_YEAR)) == CLF_YEAR) {
+		    	/* for calculations expected iso year */
+			info->date.iso8601Year = yyYear;
+		    }
+		    else
 		    if (info->date.iso8601Year < 100) {
 			if (!(flags & CLF_ISO8601CENTURY)) {
 			    if (info->date.iso8601Year >= dataPtr->yearOfCenturySwitch) {
@@ -2378,6 +2406,10 @@ ClockScan(
 			} else {
 			    info->date.iso8601Year += info->dateCentury * 100;
 			}
+		    }
+		    if ((flags & (CLF_ISO8601YEAR|CLF_YEAR)) == CLF_ISO8601YEAR) {
+		    	/* for calculations expected year (e. g. CLF_ISO8601WEAK not set) */
+			yyYear = info->date.iso8601Year;
 		    }
 		}
 	    }
@@ -2391,12 +2423,12 @@ ClockScan(
 
 	if (flags & CLF_TIME) {
 	    info->flags |= CLF_ASSEMBLE_SECONDS;
-	    yySeconds = ToSeconds(yyHour, yyMinutes,
+	    yySecondOfDay = ToSeconds(yyHour, yyMinutes,
 				yySeconds, yyMeridian);
 	} else
 	if (!(flags & (CLF_LOCALSEC|CLF_POSIXSEC))) {
 	    info->flags |= CLF_ASSEMBLE_SECONDS;
-	    yySeconds = yydate.localSeconds % SECONDS_PER_DAY;
+	    yySecondOfDay = yydate.localSeconds % SECONDS_PER_DAY;
 	}
     }
 
@@ -2474,7 +2506,7 @@ ClockFmtToken_HourAMPM_Proc(
     ClockFormatToken *tok,
     int *val)
 {
-    *val = ( ( ( *val % SECONDS_PER_DAY ) + SECONDS_PER_DAY - 3600 ) / 3600 ) % 12 + 1;
+    *val = ( ( *val + SECONDS_PER_DAY - 3600 ) / 3600 ) % 12 + 1;
     return TCL_OK;
 }
 
@@ -2489,7 +2521,7 @@ ClockFmtToken_AMPM_Proc(
     const char *s;
     int len;
 
-    if ((*val % SECONDS_PER_DAY) < (SECONDS_PER_DAY / 2)) {
+    if (*val < (SECONDS_PER_DAY / 2)) {
 	mcObj = ClockMCGet(opts, MCLIT_AM);
     } else {
 	mcObj = ClockMCGet(opts, MCLIT_PM);
@@ -2536,7 +2568,7 @@ ClockFmtToken_StarDate_Proc(
 	fractYear, '0', 3);
     *dateFmt->output++ = '.';
     /* be sure positive after decimal point (note: clock-value can be negative) */
-    v = dateFmt->date.localSeconds % SECONDS_PER_DAY / ( SECONDS_PER_DAY / 10 );
+    v = dateFmt->date.secondOfDay / ( SECONDS_PER_DAY / 10 );
     if (v < 0) v = 10 + v;
     dateFmt->output = _itoaw(dateFmt->output, v, '0', 1);
 

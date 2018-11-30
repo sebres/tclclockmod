@@ -37,6 +37,20 @@ package require tclclockmod
 clock format -now
 ```
 
+Performance ?
+-------------
+
+Current performance increase (in comparison vs the tcl-core clock):
+
+Function | Performance increase | tclclockmod | tcl8.6-clock
+-------- | -------------------- | ----------- | ------------
+`clock format` | 15 - 20 times faster | 0.27 - 4.28 µs/# | 5.45 - 45 µs/#
+`clock scan -format` | 40 - 70 times (up to 100 times faster \*)<br/><sub>\* some previously extremely slow scans</sub> | 0.44 - 1.72 µs/# | 21 - 120 µs/#
+`clock scan` (freescan) | 15 - 20 times | 0.51 - 5.84 µs/# | 12 - 77 µs/#
+`clock add` | 50 - 90 times | 0.31 - 0.68 µs/# | 15 - 45 µs/#
+
+The difference is much more larger, if the tests are running multi-threaded with parasitic load.
+
 Tcl compatibility:
 =================
 
