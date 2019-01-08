@@ -1,0 +1,8 @@
+#
+# This makes sure that TEA knows about all the necessary bits and stuffs them into configure from configure.in
+#
+autoreconf
+
+./configure --with-tcl=/usr/lib/tcl8.6
+
+# Then "make clean" and "make"
