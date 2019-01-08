@@ -3,6 +3,6 @@
 #
 autoreconf
 
-./configure --with-tcl=/usr/lib/tcl8.6
+env CC="cc -I/usr/include/tcl8.6/tcl-private/generic" ./configure --with-tcl=/usr/lib/tcl8.6
 
 # Then "make clean" and "make"
