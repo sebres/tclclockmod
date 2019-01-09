@@ -2426,6 +2426,9 @@ $as_echo "$as_me: WARNING: --with-tcl argument should refer to directory contain
 			`ls -d /Library/Frameworks 2>/dev/null` \
 			`ls -d /Network/Library/Frameworks 2>/dev/null` \
 			`ls -d /System/Library/Frameworks 2>/dev/null` \
+			`ls -d /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/Library/Frameworks/Tcl.framework 2>/dev/null` \
+			`ls -d /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/Network/Library/Frameworks/Tcl.framework 2>/dev/null` \
+			`ls -d /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Tcl.framework 2>/dev/null` \
 			; do
 		    if test -f "$i/Tcl.framework/tclConfig.sh" ; then
 			ac_cv_c_tclconfig="`(cd $i/Tcl.framework; pwd)`"
@@ -2452,13 +2455,17 @@ $as_echo "$as_me: WARNING: --with-tcl argument should refer to directory contain
 		for i in `ls -d ${libdir} 2>/dev/null` \
 			`ls -d ${exec_prefix}/lib 2>/dev/null` \
 			`ls -d ${prefix}/lib 2>/dev/null` \
-			`ls -d /usr/contrib/lib 2>/dev/null` \
 			`ls -d /usr/local/lib 2>/dev/null` \
+			`ls -d /usr/contrib/lib 2>/dev/null` \
 			`ls -d /usr/pkg/lib 2>/dev/null` \
 			`ls -d /usr/lib 2>/dev/null` \
 			`ls -d /usr/lib64 2>/dev/null` \
 			`ls -d /usr/lib/tcl8.6 2>/dev/null` \
 			`ls -d /usr/lib/tcl8.5 2>/dev/null` \
+			`ls -d /usr/local/lib/tcl8.6 2>/dev/null` \
+			`ls -d /usr/local/lib/tcl8.5 2>/dev/null` \
+			`ls -d /usr/local/lib/tcl/tcl8.6 2>/dev/null` \
+			`ls -d /usr/local/lib/tcl/tcl8.5 2>/dev/null` \
 			; do
 		    if test -f "$i/tclConfig.sh" ; then
 			ac_cv_c_tclconfig="`(cd $i; pwd)`"
@@ -3379,7 +3386,8 @@ main ()
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
 
-	    TEA_PLATFORM="unix"
+	    # first test we've already retrieved platform (cross-compile), fallback to unix otherwise:
+	    TEA_PLATFORM="${TEA_PLATFORM-unix}"
 	    CYGPATH=echo
 
 else
@@ -5792,6 +5800,7 @@ $as_echo "$doRpath" >&6; }
 
     # TEA specific: Cross-compiling options for Windows/CE builds?
 
+    doWince=${enable_wince-no}
     if test "${TEA_PLATFORM}" = windows; then :
 
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if Windows/CE build is requested" >&5
@@ -6900,7 +6909,7 @@ fi
 
 fi
 	    ;;
-	FreeBSD-*)
+	DragonFly-*|FreeBSD-*)
 	    # This configuration from FreeBSD Ports.
 	    SHLIB_CFLAGS="-fPIC"
 	    SHLIB_LD="${CC} -shared"
@@ -7536,7 +7545,7 @@ fi
 	    BSD/OS*) ;;
 	    CYGWIN_*|MINGW32_*|MINGW64_*) ;;
 	    IRIX*) ;;
-	    NetBSD-*|FreeBSD-*|OpenBSD-*) ;;
+	    NetBSD-*|DragonFly-*|FreeBSD-*|OpenBSD-*) ;;
 	    Darwin-*) ;;
 	    SCO_SV-3.2*) ;;
 	    windows) ;;
