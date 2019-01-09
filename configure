@@ -5792,6 +5792,7 @@ $as_echo "$doRpath" >&6; }
 
     # TEA specific: Cross-compiling options for Windows/CE builds?
 
+    doWince=${enable_wince-no}
     if test "${TEA_PLATFORM}" = windows; then :
 
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if Windows/CE build is requested" >&5
