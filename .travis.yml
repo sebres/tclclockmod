@@ -6,10 +6,60 @@ sudo: true
 
 language: c
 
-# test it with both compilers:
-compiler:
-  - clang
-  - gcc
+matrix:
+  fast_finish: true
+
+  include:
+### Linux-builds:
+    - os: linux
+      compiler: gcc
+      env:
+        - BUILD_TRG_DIR=unix
+        - CFGOPT=""
+    - os: linux
+      compiler: clang
+      env:
+        - BUILD_TRG_DIR=unix
+        - CFGOPT=""
+### Mingw cross-compile build:
+### # C builds not currently supported on Windows instances
+#    - os: windows
+#      env:
+#        - BUILD_TRG_DIR=win
+### # ... so proxy with a Mingw cross-compile
+# Test with mingw-w64 (32 bit)
+    - os: linux
+      dist: trusty
+      compiler: i686-w64-mingw32-gcc
+      addons:
+        apt:
+          packages:
+            - gcc-mingw-w64-base
+            - binutils-mingw-w64-i686
+            - gcc-mingw-w64-i686
+            - gcc-mingw-w64
+            - gcc-multilib
+            - wine
+      env:
+        - BUILD_TRG_DIR=win
+        - CFGOPT="--host=i686-w64-mingw32 --disable-wince"
+        - NO_DIRECT_TEST=1
+# Test with mingw-w64 (64 bit)
+    - os: linux
+      dist: trusty
+      compiler: x86_64-w64-mingw32-gcc
+      addons:
+        apt:
+          packages:
+            - gcc-mingw-w64-base
+            - binutils-mingw-w64-x86-64
+            - gcc-mingw-w64-x86-64
+            - gcc-mingw-w64
+            - wine
+      env:
+        - BUILD_TRG_DIR=win
+        - CFGOPT="--host=x86_64-w64-mingw32 --enable-64bit --disable-wince"
+        - NO_DIRECT_TEST=1
 
 addons:
   apt:
@@ -32,18 +82,25 @@ script:
   - echo "Build with $CC ..."
   #- autoconf
   #- autoreconf -iv
-  - cd unix
-  - ../configure --with-tcl=/usr/lib/tcl8.6
+  - cd $BUILD_TRG_DIR
+  - ../configure --with-tcl=/usr/lib/tcl8.6 ${CFGOPT}
   - make
+
   # current time and time-zone:
   - echo $TZ; timedatectl status
-  # load local library and execute local test cases:
-  - tclsh $BUILD_DIR/tests/all.tcl
+  # if can test
+  - |
+    if [ "$NO_DIRECT_TEST" != 1 ]; then
+      # load local library and execute local test cases:
+      tclsh $BUILD_DIR/tests/all.tcl
+    fi
+
   # test install:
-  - sudo make install
-  - echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
+  - |
+    if [ "$NO_DIRECT_TEST" != 1 ]; then
+      sudo make install
+      echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
+    fi
+
   # clean all
   - make clean
-
-matrix:
-  fast_finish: true
