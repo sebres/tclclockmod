@@ -77,8 +77,8 @@ clock unixtime
 
 Same as "clock scan" except:
 
-* If the -timezone argument is an empty string, it uses timezone UCT
-* If the input string is an integer, it assumes it's already a UNIX epock timestamp and returns it unchanged
+* If the -timezone argument is an empty string, it uses timezone UTC
+* If the input string is an integer, it assumes it's already a UNIX epoch timestamp and returns it unchanged
 * If the input sting is not a valid time, it returns 0 rather than generating an error
 
 Contact:
