@@ -17,7 +17,6 @@
 #include "tclInt.h"
 #include "tclStrIdxTree.h"
 #include "tclDate.h"
-#include "tclCompile.h"
 
 /*
  * Windows has mktime. The configurators do not check.
@@ -168,6 +167,7 @@ static const struct ClockCommand clockCommands[] = {
     {"microseconds",	ClockMicrosecondsObjCmd,TclCompileClockReadingCmd, INT2PTR(1)},
     {"milliseconds",	ClockMillisecondsObjCmd,TclCompileClockReadingCmd, INT2PTR(2)},
     {"scan",		ClockScanObjCmd,	TclCompileBasicMin1ArgCmd, NULL},
+    {"unixtime",	ClockScanObjCmd,	TclCompileBasicMin1ArgCmd, NULL},
     {"seconds",		ClockSecondsObjCmd,	TclCompileClockReadingCmd, INT2PTR(3)},
     {"configure",	ClockConfigureObjCmd,			NULL, NULL},
     {"ConvertLocalToUTC", ClockConvertlocaltoutcObjCmd,		NULL, NULL},
@@ -3263,6 +3263,7 @@ ClockInitFmtScnArgs(
 #define CLC_FMT_ARGS	(0)
 #define CLC_SCN_ARGS	(1 << 0)
 #define CLC_ADD_ARGS	(1 << 1)
+#define CLC_UNX_ARGS	(1 << 8)
 
 static int
 ClockParseFmtScnArgs(
@@ -3387,9 +3388,15 @@ ClockParseFmtScnArgs(
       || TclGetString(opts->timezoneObj) == NULL
       || opts->timezoneObj->length == 0
     ) {
-	opts->timezoneObj = ClockGetSystemTimeZone(opts->clientData, interp);
-	if (opts->timezoneObj == NULL) {
-	    return TCL_ERROR;
+	if (!(flags & CLC_UNX_ARGS)) {
+	    /* default system TZ */
+	    opts->timezoneObj = ClockGetSystemTimeZone(opts->clientData, interp);
+	    if (opts->timezoneObj == NULL) {
+		return TCL_ERROR;
+	    }
+	} else {
+	    /* clock unixtime default TZ is UTC */
+	    opts->timezoneObj = dataPtr->literals[LIT_GMT];
 	}
     }
 
@@ -3600,7 +3607,8 @@ ClockScanObjCmd(
 	    "?-format string? "
 	    "?-gmt boolean? "
 	    "?-locale LOCALE? ?-timezone ZONE? ?-validate boolean?";
-    int ret;
+    int ret,
+	paflags = CLC_SCN_ARGS; /* Flags for parse arguments (scan/unixtime) */
     ClockFmtScnCmdArgs opts;	/* Format, locale, timezone and base */
     DateInfo	    yy;		/* Common structure used for parsing */
     DateInfo	   *info = &yy;
@@ -3614,14 +3622,28 @@ ClockScanObjCmd(
 
     ClockInitDateInfo(&yy);
 
+    /* set CLC_UNX_ARGS for ::tcl::clock::unixtime command. */
+    if (1) {
+	const char *c; int len;
+	c = Tcl_GetStringFromObj(objv[0], &len);
+	if (len > 18 && c[14] == 'u') { paflags |= CLC_UNX_ARGS; };
+    }
     /*
      * Extract values for the keywords.
      */
 
     ClockInitFmtScnArgs(clientData, interp, &opts);
     ret = ClockParseFmtScnArgs(&opts, &yy.date, objc, objv,
-	    CLC_SCN_ARGS, syntax);
+	    paflags, syntax);
+
     if (ret != TCL_OK) {
+    	paflags &= ~CLC_UNX_ARGS; /* real ERROR by syntax-error */
+	goto done;
+    }
+
+    if (   (paflags & CLC_UNX_ARGS) 
+	&& TclGetWideIntFromObj(NULL, objv[1], &yy.date.seconds) == TCL_OK) {
+	/* clock unixtime assumes a posix second by integer - just return it */
 	goto done;
     }
 
@@ -3637,7 +3659,9 @@ ClockScanObjCmd(
 	    Tcl_SetObjResult(interp,
 		Tcl_NewStringObj("legacy [clock scan] does not support -locale", -1));
 	    Tcl_SetErrorCode(interp, "CLOCK", "flagWithLegacyFormat", NULL);
-	    return TCL_ERROR;
+	    paflags &= ~CLC_UNX_ARGS; /* real ERROR by syntax-error */
+	    ret = TCL_ERROR;
+	    goto done;
 	}
 	ret = ClockFreeScan(&yy, objv[1], &opts);
     }
@@ -3660,9 +3684,9 @@ ClockScanObjCmd(
 
     /* Apply validation rules, if expected */
     if ( (opts.flags & CLF_VALIDATE) ) {
-	if (ClockValidDate(&yy, &opts, 
-		opts.formatObj == NULL ? 2 : 3) != TCL_OK) {
-	    return TCL_ERROR;
+	ret = ClockValidDate(&yy, &opts, opts.formatObj == NULL ? 2 : 3);
+	if (ret != TCL_OK) {
+	    goto done;
 	}
     }
 
@@ -3671,7 +3695,11 @@ done:
     Tcl_UnsetObjRef(yy.date.tzName);
 
     if (ret != TCL_OK) {
-	return ret;
+	if (!(paflags & CLC_UNX_ARGS)) { /* clock scan */
+	    return ret;
+	}
+	/* actually (WTF, but required so) clock unixtime returns 0 by scanning errors */
+	yy.date.seconds = 0;
     }
 
     Tcl_SetObjResult(interp, Tcl_NewWideIntObj(yy.date.seconds));
