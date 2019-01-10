@@ -3636,7 +3636,8 @@ ClockScanObjCmd(
 	    Tcl_SetObjResult(interp,
 		Tcl_NewStringObj("legacy [clock scan] does not support -locale", -1));
 	    Tcl_SetErrorCode(interp, "CLOCK", "flagWithLegacyFormat", NULL);
-	    return TCL_ERROR;
+	    ret = TCL_ERROR;
+	    goto done;
 	}
 	ret = ClockFreeScan(&yy, objv[1], &opts);
     }
@@ -3659,9 +3660,9 @@ ClockScanObjCmd(
 
     /* Apply validation rules, if expected */
     if ( (opts.flags & CLF_VALIDATE) ) {
-	if (ClockValidDate(&yy, &opts, 
-		opts.formatObj == NULL ? 2 : 3) != TCL_OK) {
-	    return TCL_ERROR;
+	ret = ClockValidDate(&yy, &opts, opts.formatObj == NULL ? 2 : 3);
+	if (ret != TCL_OK) {
+	    goto done;
 	}
     }
 
