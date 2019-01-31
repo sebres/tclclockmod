@@ -3,7 +3,7 @@
          |_   _|_| |/ __| |___  __| |_|  \/  |___  __| |
            | |/ _| | (__| / _ \/ _| / / |\/| / _ \/ _` |
            |_|\__|_|\___|_\___/\__|_\_\_|  |_\___/\__,_|
-           v.8.6.7-01                         2017/08/30
+           v.8.6.7-03                         2018/12/03
                                                        
 
 ## TclClockMod: the fastest, most powerful Tcl clock engine written in C
@@ -69,6 +69,17 @@ Code status (CI):
   - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg?branch=master)](https://travis-ci.org/sebres/tclclockmod) (master)
   - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg)](https://travis-ci.org/sebres/tclclockmod) (latest)
 
+Differences from base clock
+===========================
+
+clock unixtime
+--------------
+
+Same as "clock scan" except:
+
+* If the -timezone argument is an empty string, it uses timezone UTC
+* If the input string is an integer, it assumes it's already a UNIX epoch timestamp and returns it unchanged
+* If the input sting is not a valid time, it returns 0 rather than generating an error
 
 Contact:
 --------
