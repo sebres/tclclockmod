@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/flightaware/tclclockmod.svg?branch=master)](https://travis-ci.org/flightaware/tclclockmod)
 
           _____   _  ___ _         _   __  __         _ 
          |_   _|_| |/ __| |___  __| |_|  \/  |___  __| |
