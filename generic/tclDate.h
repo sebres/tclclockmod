@@ -349,7 +349,7 @@ typedef struct ClockClientData {
     int yearOfCenturySwitch;
     int validMinYear;
     int validMaxYear;
-    Tcl_WideInt maxJulianDay;
+    double maxJDN;
 
     Tcl_Obj *systemTimeZone;
     Tcl_Obj *systemSetupTZData;
