@@ -30,8 +30,8 @@ before_script:
 
 script:
   - echo "Build with $CC ..."
-  #- autoconf
-  #- autoreconf -iv
+  - autoconf
+  - autoreconf -iv
   - cd unix
   - ../configure --with-tcl=/usr/lib/tcl8.6
   - make
