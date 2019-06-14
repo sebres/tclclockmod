@@ -86,8 +86,7 @@ TclStrIdxTreeSearch(
 {
     TclStrIdxTree *parent = tree, *prevParent = tree;
     TclStrIdx  *item = tree->firstPtr, *prevItem = NULL;
-    const char *s = start, *f, *cin, *cinf, *prevf = NULL;
-    int offs = 0;
+    const char *s = start, *f, *e, *prevf = NULL;
 
     if (item == NULL) {
 	goto done;
@@ -95,8 +94,8 @@ TclStrIdxTreeSearch(
 
     /* search in tree */
     do {
-	cinf = cin = TclGetString(item->key) + offs;
-	f = TclUtfFindEqualNCInLwr(s, end, cin, cin + item->length - offs, &cinf);
+	e = item->pos;
+	f = TclUtfFindEqualNCInLwr(s, end, e, e + item->len, &e);
 	/* if something was found */
 	if (f > s) {
 	    /* if whole string was found */
@@ -104,11 +103,10 @@ TclStrIdxTreeSearch(
 		start = f;
 		goto done;
 	    };
-	    /* set new offset and shift start string */
-	    offs += cinf - cin;
+	    /* shift start string */
 	    s = f;
 	    /* if match item, go deeper as long as possible */
-	    if (offs >= item->length && item->childTree.firstPtr) {
+	    if (e - item->pos >= item->len && item->childTree.firstPtr) {
 		/* save previuosly found item (if not ambigous) for
 		 * possible fallback (few greedy match) */
 		if (item->value != NULL) {
@@ -231,7 +229,7 @@ TclStrIdxTreeBuildFromList(
     ClientData *values)
 {
     Tcl_Obj  **lwrv;
-    int i, ret = TCL_ERROR;
+    int i, offs, l, ret = TCL_ERROR;
     ClientData val;
     const char *s, *e, *f;
     TclStrIdx	*item;
@@ -254,6 +252,7 @@ TclStrIdxTreeBuildFromList(
     /* build index tree of the list keys */
     for (i = 0; i < lstc; i++) {
 	TclStrIdxTree *foundParent = idxTree;
+	offs = l = 0; /* parent offset and length */
 	e = s = TclGetString(lwrv[i]);
 	e += lwrv[i]->length;
 	val = values ? values[i] : INT2PTR(i+1);
@@ -274,30 +273,38 @@ TclStrIdxTreeBuildFromList(
 		}
 		/* if shortest key was found with the same value,
 		 * just replace its current key with longest key */
+		offs = TclStrIdxGetItemOffset(foundItem);
+		l = foundItem->len + offs;
 		if ( foundItem->value == val
-		  && foundItem->length <= lwrv[i]->length
-		  && foundItem->length <= (f - s) /* only if found item is covered in full */
+		  && l <= lwrv[i]->length
+		  && l <= (f - s) /* only if found item is covered in full */
 		  && foundItem->childTree.firstPtr == NULL
 		) {
 		    Tcl_SetObjRef(foundItem->key, lwrv[i]);
-		    foundItem->length = lwrv[i]->length;
+		    foundItem->pos = TclGetString(foundItem->key) + offs;
+		    foundItem->len = lwrv[i]->length - offs;
 		    continue;
 		}
 		/* split tree (e. g. j->(jan,jun) + jul == j->(jan,ju->(jun,jul)) )
 		 * but don't split by fulfilled child of found item ( ii->iii->iiii ) */
-		if (foundItem->length != (f - s)) {
+		if (l != (f - s)) {
 		    /* first split found item (insert one between parent and found + new one) */
 		    item = ckalloc(sizeof(*item));
 		    if (item == NULL) {
 			goto done;
 		    }
 		    Tcl_InitObjRef(item->key, foundItem->key);
-		    item->length = f - s;
+		    item->pos = TclGetString(item->key) + offs;
+		    l = f - s;
+		    item->len = l - offs;
 		    /* set value or mark as ambigous if not the same value of both */
 		    item->value = (foundItem->value == val) ? val : NULL;
 		    /* insert group item between foundParent and foundItem */
 		    TclStrIdxTreeInsertBranch(foundParent, item, foundItem);
 		    foundParent = &item->childTree;
+		    /* correct offset and length of found item (relative item now) */
+		    foundItem->pos += item->len;
+		    foundItem->len -= item->len;
 		} else {
 		    /* the new item should be added as child of found item */
 		    foundParent = &foundItem->childTree;
@@ -311,7 +318,9 @@ TclStrIdxTreeBuildFromList(
 	}
 	item->childTree.lastPtr = item->childTree.firstPtr = NULL;
 	Tcl_InitObjRef(item->key, lwrv[i]);
-	item->length = lwrv[i]->length;
+	/* use length of parent as offset of new item */
+	item->pos = TclGetString(item->key) + l;
+	item->len = lwrv[i]->length - l;
 	item->value = val;
 	TclStrIdxTreeAppend(foundParent, item);
     };
@@ -432,20 +441,19 @@ TclStrIdxTreeGetFromObj(Tcl_Obj *objPtr) {
 void
 TclStrIdxTreePrint(
     Tcl_Interp *interp,
-    TclStrIdx  *tree,
-    int offs)
+    TclStrIdx  *tree)
 {
     Tcl_Obj *obj[2];
     const char *s;
     Tcl_InitObjRef(obj[0], Tcl_NewStringObj("::puts", -1));
     while (tree != NULL) {
-	s = TclGetString(tree->key) + offs;
+	offs = TclStrIdxGetItemOffset(tree);
 	Tcl_InitObjRef(obj[1], Tcl_ObjPrintf("%*s%.*s\t:%d",
-		offs, "", tree->length - offs, s, tree->value));
+		offs, "", tree->len, tree->pos, PTR2INT(tree->value)));
 	Tcl_PutsObjCmd(NULL, interp, 2, obj);
 	Tcl_UnsetObjRef(obj[1]);
 	if (tree->childTree.firstPtr != NULL) {
-	    TclStrIdxTreePrint(interp, tree->childTree.firstPtr, tree->length);
+	    TclStrIdxTreePrint(interp, tree->childTree.firstPtr);
 	}
 	tree = tree->nextPtr;
     }
@@ -507,7 +515,7 @@ TclStrIdxTreeTestObjCmd(
 	    TclStrIdxTreeBuildFromList(&idxTree, lstc, lstv, NULL);
 	}
 	if (optionIndex == O_PUTS_INDEX) {
-	    TclStrIdxTreePrint(interp, idxTree.firstPtr, 0);
+	    TclStrIdxTreePrint(interp, idxTree.firstPtr);
 	}
 	TclStrIdxTreeFree(idxTree.firstPtr);
     }

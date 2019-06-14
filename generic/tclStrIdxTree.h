@@ -28,10 +28,17 @@ typedef struct TclStrIdx {
     struct TclStrIdxTree childTree;
     struct TclStrIdx *nextPtr;
     struct TclStrIdx *prevPtr;
-    Tcl_Obj	*key;
-    int		 length;
-    ClientData	 value;
+    Tcl_Obj	*key;		/* Key containing the string rep reference. */
+    const char	*pos;		/* Position of first byte of item key. */
+    int		 len;		/* Length of key in bytes (relative to pos). */
+    ClientData	 value;		/* Value of item (or NULL if it is ambiguous). */
 } TclStrIdx;
+
+/* Return offset and length of item key in bytes (relative to key start). */
+#define TclStrIdxGetItemOffset(item) \
+	    ((item)->pos - TclGetString((item)->key))
+#define TclStrIdxGetItemLength(item) \
+	    ((item)->len + TclStrIdxGetItemOffset(item))
 
 
 /*
