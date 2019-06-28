@@ -29,7 +29,8 @@ typedef struct TclStrIdx {
     struct TclStrIdx *nextPtr;
     struct TclStrIdx *prevPtr;
     Tcl_Obj	*key;		/* Key containing the string rep reference. */
-    const char	*pos;		/* Position of first byte of item key. */
+    Tcl_UniChar  ch;		/* First char of item key for fast search (unique per branch). */
+    const char	*pos;		/* Position of item key string (relative parent). */
     int		 len;		/* Length of key in bytes (relative to pos). */
     ClientData	 value;		/* Value of item (or NULL if it is ambiguous). */
 } TclStrIdx;

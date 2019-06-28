@@ -86,7 +86,7 @@ TclStrIdxTreeSearch(
 {
     TclStrIdxTree *parent = tree, *prevParent = tree;
     TclStrIdx  *item = tree->firstPtr, *prevItem = NULL;
-    const char *s = start, *f, *e, *prevf = NULL;
+    const char *s = start, *f, *its, *ite, *prevf = NULL;
 
     if (item == NULL) {
 	goto done;
@@ -94,39 +94,65 @@ TclStrIdxTreeSearch(
 
     /* search in tree */
     do {
-	e = item->pos;
-	f = TclUtfFindEqualNCInLwr(s, end, e, e + item->len, &e);
-	/* if something was found */
-	if (f > s) {
-	    /* if whole string was found */
-	    if (f >= end) {
-		start = f;
-		goto done;
-	    };
-	    /* shift start string */
-	    s = f;
-	    /* if match item, go deeper as long as possible */
-	    if (e - item->pos >= item->len && item->childTree.firstPtr) {
-		/* save previuosly found item (if not ambigous) for
-		 * possible fallback (few greedy match) */
-		if (item->value != NULL) {
-		    prevf = f;
-		    prevItem = item;
-		    prevParent = parent;
+	/* keys in tree are always in lower case, so fast search in this branch
+	 * for key with equal char by offset */
+	Tcl_UniChar ch;
+
+	f = s; f += TclUtfToUniChar(s, &ch);
+	ch = Tcl_UniCharToLower(ch);
+	do {
+	    if (ch == item->ch) {
+		/* item found, shift to next char to compare further */
+		its = item->pos;
+		ite = its + item->len;
+		/* safe shift to next item byte - utf-8 length is case related,
+		 * see [format \x69\u0130], so consider it here */
+		if ((*s < 0xC0 && *its < 0xC0) || *s == *its) {
+		    its += (f - s); /* simple shift (same length) */
+		} else {
+		    its += TclUtfToUniChar(its, &ch /* unused */);
 		}
-		parent = &item->childTree;
-		item = item->childTree.firstPtr;
-		continue;
+		/* if item longer as one char, find key part matched */
+		if (its < ite) {
+		    f = TclUtfFindEqualNCInLwr(f, end, its, ite, &its);
+		}
+		/* found, but we need check further (greedy & ambiguity) */
+		break;
 	    }
-	    /* no children - return this item and current chars found */
+	    if (!(item = item->nextPtr)) {
+		goto endSearch;
+	    }
+	} while (1);
+
+	/* if whole string was found */
+	if (f >= end) {
 	    start = f;
 	    goto done;
+	};
+	/* shift start string */
+	s = f;
+	/* if whole item matched, go deeper as long as possible */
+	if (its >= ite && item->childTree.firstPtr) {
+	    /* save previuosly found item (if not ambigous) for
+	     * possible fallback (few greedy match) */
+	    if (item->value != NULL) {
+		prevf = f;
+		prevItem = item;
+		prevParent = parent;
+	    }
+	    parent = &item->childTree;
+	    item = item->childTree.firstPtr;
+	    continue;
 	}
+	/* no children - return this item and current chars found */
+	start = f;
+	goto done;
 
 	item = item->nextPtr;
 
     } while (item != NULL);
 
+endSearch:
     /* fallback (few greedy match) not ambigous (has a value) */
     if (prevItem != NULL) {
 	item = prevItem;
@@ -282,6 +308,7 @@ TclStrIdxTreeBuildFromList(
 		) {
 		    Tcl_SetObjRef(foundItem->key, lwrv[i]);
 		    foundItem->pos = TclGetString(foundItem->key) + offs;
+		    TclUtfToUniChar(foundItem->pos, &foundItem->ch);
 		    foundItem->len = lwrv[i]->length - offs;
 		    continue;
 		}
@@ -295,6 +322,7 @@ TclStrIdxTreeBuildFromList(
 		    }
 		    Tcl_InitObjRef(item->key, foundItem->key);
 		    item->pos = TclGetString(item->key) + offs;
+		    TclUtfToUniChar(item->pos, &item->ch);
 		    l = f - s;
 		    item->len = l - offs;
 		    /* set value or mark as ambigous if not the same value of both */
@@ -304,6 +332,7 @@ TclStrIdxTreeBuildFromList(
 		    foundParent = &item->childTree;
 		    /* correct offset and length of found item (relative item now) */
 		    foundItem->pos += item->len;
+		    TclUtfToUniChar(foundItem->pos, &foundItem->ch);
 		    foundItem->len -= item->len;
 		} else {
 		    /* the new item should be added as child of found item */
@@ -320,6 +349,7 @@ TclStrIdxTreeBuildFromList(
 	Tcl_InitObjRef(item->key, lwrv[i]);
 	/* use length of parent as offset of new item */
 	item->pos = TclGetString(item->key) + l;
+	TclUtfToUniChar(item->pos, &item->ch);
 	item->len = lwrv[i]->length - l;
 	item->value = val;
 	TclStrIdxTreeAppend(foundParent, item);
