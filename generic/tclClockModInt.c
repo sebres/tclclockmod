@@ -52,6 +52,7 @@ int TclCompileClockReadingCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr,
 Tcl_ObjCmdProc *_ClockClicksObjCmd;
 Tcl_ObjCmdProc *_ClockMillisecondsObjCmd;
 Tcl_ObjCmdProc *_ClockMicrosecondsObjCmd;
+Tcl_ObjCmdProc * _TclNRCatchObjCmd;
 
 int ClockClicksObjCmd(ClientData clientData, Tcl_Interp *interp,
    int objc, Tcl_Obj *const *objv)
@@ -67,6 +68,12 @@ int ClockMicrosecondsObjCmd(ClientData clientData, Tcl_Interp *interp,
    int objc, Tcl_Obj *const *objv)
 {
     return _ClockMicrosecondsObjCmd(clientData, interp, objc, objv);
+}
+
+int Tcl_CatchObjCmd(ClientData dummy, Tcl_Interp *interp,
+   int objc, Tcl_Obj *const objv[])
+{
+    return Tcl_NRCallObjProc(interp, _TclNRCatchObjCmd, dummy, objc, objv);
 }
 
 /* Currently no external declaration for tclStringHashKeyType */
@@ -213,6 +220,9 @@ void _InitModTclIntInternals(Tcl_Interp *interp) {
 	InterpCommand(interp, "::tcl::clock::milliseconds")->objProc;
     _ClockMicrosecondsObjCmd =
 	InterpCommand(interp, "::tcl::clock::microseconds")->objProc;
+
+    _TclNRCatchObjCmd =
+	InterpCommand(interp, "::catch")->nreProc;
 }
 
 /*
