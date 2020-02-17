@@ -1,51 +1,79 @@
 # vim ft=yaml
 # travis-ci.org definition for tclclockmod build
 # https://travis-ci.org/sebres/tclclockmod/
-dist: xenial
-sudo: true
+dist: bionic
+os: linux
 
 language: c
+# compiler:
+# - gcc
+# - clang
 
-# test it with both compilers:
-compiler:
-  - clang
-  - gcc
+_org_tcl: &org_tcl
+  addons:
+    apt:
+      packages:
+        - tcl8.6
+        - tcl8.6-dev
 
-addons:
-  apt:
-    packages:
-      #- tcl8.6
-      #- tcl8.6-dev
+_new_tcl: &new_tcl
+  install:
+    # avoid generate too many locales:
+    - sudo sh -c 'echo "en_US.UTF-8 UTF-8" > /etc/locale.gen'
+    # install newest 8.6.9 / 8.6.10 from disco/focal ...
+    - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu $TCL_DIST main universe"
+    - sudo apt-get update
+    - sudo apt-get install --no-install-recommends -y -t $TCL_DIST tcl8.6 tcl8.6-dev
 
-before_install:
-  # ATM trusty-cosmic/xenial have too old tcl version (8.6.0/8.6.5), thus install newest 8.6.9 from disco ...
-  - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu disco main universe"
-  - sudo apt-get update
-  - sudo apt-get install --no-install-recommends -y -t disco tcl8.6 tcl8.6-dev
-  # prerequirements (tclconfig)
-  - test -d tclconfig || git clone https://github.com/tcltk/tclconfig.git ./tclconfig
+jobs:
+  fast_finish: true
+  include:
+    - stage: "tcl8.6.8 (bionic)"
+      <<: *org_tcl
+      compiler: gcc
+    - # stage: clang
+      compiler: clang
+    - stage: "tcl8.6.9 (disco)"
+      env: TCL_DIST=disco
+      <<: *new_tcl
+      compiler: gcc
+    - # stage: clang
+      env: TCL_DIST=disco
+      <<: *new_tcl
+      compiler: clang
+    - stage: "tcl8.6.10 (focal)"
+      env: TCL_DIST=focal
+      <<: *new_tcl
+      compiler: gcc
+    - # stage: clang
+      env: TCL_DIST=focal
+      <<: *new_tcl
+      compiler: clang
 
 before_script:
+  # prerequirements (tclconfig)
+  - test -d tclconfig || git clone https://github.com/tcltk/tclconfig.git ./tclconfig
   # show version:
   - echo puts [info patchlevel] | tclsh
-  - export BUILD_DIR=$(pwd)
+  - export MOD_DIR=$(pwd)
+  - export BUILD_DIR="$MOD_DIR/build_$CC"
 
 script:
-  - echo "Build with $CC ..."
+  - echo "Build in $BUILD_DIR with $CC ..."
   #- autoconf
   #- autoreconf -iv
-  - cd unix
+  - mkdir -p "$BUILD_DIR"; cd "$BUILD_DIR"
   - ../configure --with-tcl=/usr/lib/tcl8.6
   - make
   # current time and time-zone:
   - echo $TZ; timedatectl status
   # load local library and execute local test cases:
-  - tclsh $BUILD_DIR/tests/all.tcl
+  - tclsh $MOD_DIR/tests/all.tcl
+
+after_script:
   # test install:
+  - cd "$BUILD_DIR"
   - sudo make install
   - echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
   # clean all
   - make clean
-
-matrix:
-  fast_finish: true
