@@ -33,12 +33,12 @@ jobs:
       compiler: gcc
     - # stage: clang
       compiler: clang
-    - stage: "tcl8.6.9 (disco)"
-      env: TCL_DIST=disco
+    - stage: "tcl8.6.9 (eoan)"
+      env: TCL_DIST=eoan
       <<: *new_tcl
       compiler: gcc
     - # stage: clang
-      env: TCL_DIST=disco
+      env: TCL_DIST=eoan
       <<: *new_tcl
       compiler: clang
     - stage: "tcl8.6.10 (focal)"
