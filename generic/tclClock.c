@@ -240,6 +240,8 @@ TclClockInit(
     data->yearOfCenturySwitch = ClockDefaultCenturySwitch;
     data->validMinYear = INT_MIN;
     data->validMaxYear = INT_MAX;
+    /* corresponds max of JDN in sqlite - 9999-12-31 23:59:59 per default */
+    data->maxJDN = 5373484.499999994; 
 
     data->systemTimeZone = NULL;
     data->systemSetupTZData = NULL;
@@ -986,14 +988,14 @@ ClockConfigureObjCmd(
 	"-system-tz",	  "-setup-tz",	  "-default-locale",	"-current-locale",
 	"-clear",
 	"-year-century",  "-century-switch",
-	"-min-year", "-max-year", "-validate",
+	"-min-year", "-max-year", "-max-jdn", "-validate",
 	NULL
     };
     enum optionInd {
 	CLOCK_SYSTEM_TZ,  CLOCK_SETUP_TZ, CLOCK_DEFAULT_LOCALE, CLOCK_CURRENT_LOCALE,
 	CLOCK_CLEAR_CACHE,
 	CLOCK_YEAR_CENTURY, CLOCK_CENTURY_SWITCH,
-	CLOCK_MIN_YEAR, CLOCK_MAX_YEAR, CLOCK_VALIDATE
+	CLOCK_MIN_YEAR, CLOCK_MAX_YEAR, CLOCK_MAX_JDN, CLOCK_VALIDATE
     };
     int optionIndex;		/* Index of an option. */
     int i;
@@ -1120,6 +1122,21 @@ ClockConfigureObjCmd(
 	    if (i+1 >= objc) {
 		Tcl_SetObjResult(interp,
 		    Tcl_NewIntObj(dataPtr->validMaxYear));
+	    }
+	break;
+	case CLOCK_MAX_JDN:
+	    if (i < objc) {
+		double jd;
+		if (Tcl_GetDoubleFromObj(interp, objv[i], &jd) != TCL_OK) {
+		    return TCL_ERROR;
+		}
+		dataPtr->maxJDN = jd;
+		Tcl_SetObjResult(interp, objv[i]);
+		continue;
+	    }
+	    if (i+1 >= objc) {
+		Tcl_SetObjResult(interp,
+		    Tcl_NewDoubleObj(dataPtr->maxJDN));
 	    }
 	break;
 	case CLOCK_VALIDATE:
@@ -1605,11 +1622,11 @@ ClockGetDateFields(
     }
 
     /*
-     * Extract Julian day.
+     * Extract Julian day and seconds of the day.
      */
 
-    fields->julianDay = (fields->localSeconds + JULIAN_SEC_POSIX_EPOCH)
-	    / SECONDS_PER_DAY;
+    ClockExtractJDAndSODFromSeconds(fields->julianDay, fields->secondOfDay,
+	fields->localSeconds);
 
     /*
      * Convert to Julian or Gregorian calendar.
@@ -1618,15 +1635,6 @@ ClockGetDateFields(
     GetGregorianEraYearDay(fields, changeover);
     GetMonthDay(fields);
     GetYearWeekDay(fields, changeover);
-
-    
-    /*
-     * Seconds of the day.
-     */
-    fields->secondOfDay = (int)(fields->localSeconds % SECONDS_PER_DAY);
-    if (fields->secondOfDay < 0) {
-	fields->secondOfDay += SECONDS_PER_DAY;
-    }
 
     return TCL_OK;
 }
@@ -2091,19 +2099,14 @@ ConvertLocalToUTCUsingC(
     struct tm timeVal;
     int localErrno;
     int secondOfDay;
-    Tcl_WideInt jsec;
 
     /*
      * Convert the given time to a date.
      */
 
-    jsec = fields->localSeconds + JULIAN_SEC_POSIX_EPOCH;
-    fields->julianDay = (jsec / SECONDS_PER_DAY);
-    secondOfDay = (int)(jsec % SECONDS_PER_DAY);
-    if (secondOfDay < 0) {
-	secondOfDay += SECONDS_PER_DAY;
-	fields->julianDay--;
-    }
+    ClockExtractJDAndSODFromSeconds(fields->julianDay, secondOfDay,
+	fields->localSeconds);
+
     GetGregorianEraYearDay(fields, changeover);
     GetMonthDay(fields);
 
@@ -3749,9 +3752,12 @@ ClockScanCommit(
 	info->flags &= ~CLF_ASSEMBLE_JULIANDAY;
     }
 
-    /* some overflow checks, if not extended */
-    if (!(opts->flags & CLF_EXTENDED)) {
-	if (yydate.julianDay > 5373484) {
+    /* some overflow checks */
+    if (info->flags & CLF_JULIANDAY) {
+	ClockClientData *dataPtr = opts->clientData;
+	double curJDN = (double)yydate.julianDay
+	    + ((double)yySecondOfDay - SECONDS_PER_DAY/2) / SECONDS_PER_DAY;
+	if (curJDN > dataPtr->maxJDN) {
 	    Tcl_SetObjResult(opts->interp, Tcl_NewStringObj(
 		"requested date too large to represent", -1));
 	    Tcl_SetErrorCode(opts->interp, "CLOCK", "dateTooLarge", NULL);
@@ -3822,14 +3828,14 @@ ClockValidDate(
     }
 
     /* first year (used later in hath / daysInPriorMonths) */
-    if ((info->flags & (CLF_YEAR|CLF_ISO8601YEAR)) || yyHaveDate) {
+    if ((info->flags & (CLF_YEAR|CLF_ISO8601YEAR))) {
 	if ((info->flags & CLF_ISO8601YEAR)) {
 	    if ( yydate.iso8601Year < dataPtr->validMinYear
 	      || yydate.iso8601Year > dataPtr->validMaxYear ) {
 		errMsg = "invalid iso year"; errCode = "iso year"; goto error;
 	    }
 	}
-	if ((info->flags & CLF_YEAR) || yyHaveDate) {
+	if (info->flags & CLF_YEAR) {
 	    if ( yyYear < dataPtr->validMinYear 
 	      || yyYear > dataPtr->validMaxYear ) {
 		errMsg = "invalid year"; errCode = "year"; goto error;
@@ -3845,15 +3851,13 @@ ClockValidDate(
 	}
     }
     /* and month (used later in hath) */
-    if ((info->flags & CLF_MONTH) || yyHaveDate) {
-    	info->flags |= CLF_MONTH;
+    if (info->flags & CLF_MONTH) {
 	if ( yyMonth < 1 || yyMonth > 12 ) {
 	    errMsg = "invalid month"; errCode = "month"; goto error;
 	}
     }
     /* day of month */
-    if ((info->flags & CLF_DAYOFMONTH) || (yyHaveDate || yyHaveDay)) {
-    	info->flags |= CLF_DAYOFMONTH;
+    if (info->flags & (CLF_DAYOFMONTH|CLF_DAYOFWEEK)) {
 	if ( yyDay < 1 || yyDay > 31 ) {
 	    errMsg = "invalid day"; errCode = "day"; goto error;
 	}
@@ -3865,7 +3869,7 @@ ClockValidDate(
 	    }
 	}
     }
-    if ((info->flags & CLF_DAYOFYEAR)) {
+    if (info->flags & CLF_DAYOFYEAR) {
 	if ( yydate.dayOfYear < 1
 	  || yydate.dayOfYear > daysInPriorMonths[IsGregorianLeapYear(&yydate)][12] ) {
 	    errMsg = "invalid day of year"; errCode = "day of year"; goto error;
@@ -3885,7 +3889,7 @@ ClockValidDate(
 	}
     }
 
-    if ((info->flags & CLF_TIME) || yyHaveTime) {
+    if (info->flags & CLF_TIME) {
 	/* hour */
 	if ( yyHour < 0 || yyHour > ((yyMeridian == MER24) ? 23 : 12) ) {
 	    errMsg = "invalid time (hour)"; errCode = "hour"; goto error;
@@ -3912,7 +3916,7 @@ ClockValidDate(
 
     /* time, regarding the modifications by the time-zone (looks for given time
      * in between DST-time hole, so does not exist in this time-zone) */
-    if (((info->flags & CLF_TIME) || yyHaveTime)) {
+    if (info->flags & CLF_TIME) {
 	/* 
 	 * we don't need to do the backwards time-conversion (UTC to local) and 
 	 * compare results, because the after conversion (local to UTC) we 
@@ -3999,7 +4003,7 @@ ClockFreeScan(
      * midnight.
      */
 
-    if (yyHaveDate) {
+    if (info->flags & CLF_YEAR) {
 	if (yyYear < 100) {
 	    if (yyYear >= dataPtr->yearOfCenturySwitch) {
 		yyYear -= 100;
@@ -4007,9 +4011,6 @@ ClockFreeScan(
 	    yyYear += dataPtr->currentYearCentury;
 	}
 	yydate.era = CE;
-	if (yyHaveTime == 0) {
-	    yyHaveTime = -1;
-	}
 	info->flags |= CLF_ASSEMBLE_JULIANDAY|CLF_ASSEMBLE_SECONDS;
     }
 
@@ -4018,7 +4019,7 @@ ClockFreeScan(
      * zone indicator of +-hhmm and setup this time zone.
      */
 
-    if (yyHaveZone) {
+    if (info->flags & CLF_ZONE) {
 	Tcl_Obj *tzObjStor = NULL;
 	int minEast = -yyTimezone;
 	int dstFlag = 1 - yyDSTmode;
@@ -4052,20 +4053,20 @@ ClockFreeScan(
      * Assemble date, time, zone into seconds-from-epoch
      */
 
-    if (yyHaveTime == -1) {
+    if ((info->flags & (CLF_TIME|CLF_HAVEDATE)) == CLF_HAVEDATE) {
 	yySecondOfDay = 0;
 	info->flags |= CLF_ASSEMBLE_SECONDS;
     }
     else
-    if (yyHaveTime) {
+    if (info->flags & CLF_TIME) {
 	yySecondOfDay = ToSeconds(yyHour, yyMinutes,
 			    yySeconds, yyMeridian);
 	info->flags |= CLF_ASSEMBLE_SECONDS;
     }
     else
-    if ( (yyHaveDay && !yyHaveDate)
-	    || yyHaveOrdinalMonth
-	    || ( yyHaveRel
+    if ( (info->flags & (CLF_DAYOFWEEK|CLF_HAVEDATE)) == CLF_DAYOFWEEK
+	    || (info->flags & CLF_ORDINALMONTH)
+	    || ( (info->flags & CLF_RELCONV)
 		&& ( yyRelMonth != 0
 		     || yyRelDay != 0 ) )
     ) {
@@ -4118,7 +4119,7 @@ ClockCalcRelTime(
      */
 repeat_rel:
 
-    if (yyHaveRel) {
+    if (info->flags & CLF_RELCONV) {
 
 	/*
 	 * Relative conversion normally possible in UTC time only, because
@@ -4144,6 +4145,11 @@ repeat_rel:
 	    yyMonth += yyRelMonth - 1;
 	    yyYear += yyMonth / 12;
 	    m = yyMonth % 12;
+	    /* compiler fix for negative offs - wrap y, m = (0, -1) -> (-1, 11) */
+	    if (m < 0) {
+		yyYear--;
+		m = 12 + m;
+	    }
 	    yyMonth = m + 1;
 
 	    /* if the day doesn't exist in the current month, repair it */
@@ -4190,14 +4196,14 @@ repeat_rel:
 	    }
 	}
 
-	yyHaveRel = 0;
+	info->flags &= ~CLF_RELCONV;
     }
 
     /*
      * Do relative (ordinal) month
      */
 
-    if (yyHaveOrdinalMonth) {
+    if (info->flags & CLF_ORDINALMONTH) {
 	int monthDiff;
 
 	/* if needed extract year, month, etc. again */
@@ -4223,12 +4229,10 @@ repeat_rel:
 	}
 
 	/* process it further via relative times */
-	yyHaveRel++;
 	yyYear += yyMonthOrdinalIncr;
 	yyRelMonth += monthDiff;
-	yyHaveOrdinalMonth = 0;
-
-	info->flags |= CLF_ASSEMBLE_JULIANDAY|CLF_ASSEMBLE_SECONDS;
+	info->flags &= ~CLF_ORDINALMONTH;
+	info->flags |= CLF_RELCONV|CLF_ASSEMBLE_JULIANDAY|CLF_ASSEMBLE_SECONDS;
 
 	goto repeat_rel;
     }
@@ -4237,12 +4241,11 @@ repeat_rel:
      * Do relative weekday
      */
 
-    if (yyHaveDay && !yyHaveDate) {
+    if ((info->flags & (CLF_DAYOFWEEK|CLF_HAVEDATE)) == CLF_DAYOFWEEK) {
 
 	/* restore scanned day of week */
-	if (info->flags & CLF_DAYOFWEEK) {
-	    yyDayOfWeek = prevDayOfWeek;
-	}
+	yyDayOfWeek = prevDayOfWeek;
+
 	/* if needed assemble julianDay now */
 	if (info->flags & CLF_ASSEMBLE_JULIANDAY) {
 	    GetJulianDayFromEraYearMonthDay(&yydate, GREGORIAN_CHANGE_DATE);
@@ -4448,7 +4451,7 @@ ClockAddObjCmd(
 	 * correct date info, because the date may be changed,
 	 * so refresh it now */
 
-	if ( yyHaveRel
+	if ( (info->flags & CLF_RELCONV)
 	  && ( unitIndex == CLC_ADD_WEEKDAYS
 	    /* some months can be shorter as another */
 	    || yyRelMonth || yyRelDay
@@ -4463,7 +4466,7 @@ ClockAddObjCmd(
 	}
 
 	/* process increment by offset + unit */
-	yyHaveRel++;
+	info->flags |= CLF_RELCONV;
 	switch (unitIndex) {
 	case CLC_ADD_YEARS:
 	    yyRelMonth += offs * 12;
@@ -4500,7 +4503,7 @@ ClockAddObjCmd(
      * Do relative times (if not yet already processed interim):
      */
 
-    if (yyHaveRel) {
+    if (info->flags & CLF_RELCONV) {
 	if (ClockCalcRelTime(info, &opts) != TCL_OK) {
 	    goto done;
 	}

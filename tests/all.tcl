@@ -50,6 +50,7 @@ proc ::tcltest::__SortFiles {lst} {
 }
 
 set TESTDIR [file normalize [file dirname [info script]]]
+set BUILDDIR [pwd]
 if {![::tcl::pkgconfig get debug]} { # allow to load lib from current directory in debug:
   # switch to temp directory:
   if {[catch {
@@ -77,6 +78,7 @@ foreach testfile [::tcltest::__SortFiles [::tcltest::GetMatchingFiles $TESTDIR]]
   $slave eval {namespace import tcltest::*}
   interp alias $slave ::tcltest::ReportToMaster {} ::tcltest::__ReportToMaster
   $slave eval [list set TESTFILE [file join $TESTDIR $testfile]]
+  $slave eval [list set BUILDDIR $BUILDDIR]
   $slave eval [list ::tcltest::configure {*}$TEST_OPTIONS]
   $slave eval $GLOB_OPTIONS
   # invoke test suite:
