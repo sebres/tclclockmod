@@ -233,12 +233,7 @@ proc ::tcl::clock::Initialize {} {
     # to reside on various operating systems
 
     variable ZoneinfoPaths {}
-    foreach path {
-	/usr/share/zoneinfo
-	/usr/share/lib/zoneinfo
-	/usr/lib/zoneinfo
-	/usr/local/etc/zoneinfo
-    } {
+    foreach path [list @TZPATH@] {
 	if { [file isdirectory $path] } {
 	    lappend ZoneinfoPaths $path
 	}

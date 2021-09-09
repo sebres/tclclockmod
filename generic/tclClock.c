@@ -3290,6 +3290,8 @@ ClockParseFmtScnArgs(
 	CLC_ARGS_BASE, CLC_ARGS_FORMAT, CLC_ARGS_GMT, CLC_ARGS_LOCALE,
 	CLC_ARGS_TIMEZONE, CLC_ARGS_VALIDATE
     };
+    int canUseLastBase = 0;     /* Flag == 1 when we can re-use cached base fields  */
+    size_t oldTZEpoch = dataPtr->lastTZEpoch;
     int optionIndex;		/* Index of an option. */
     int saw = 0;		/* Flag == 1 if option was seen already. */
     int i;
@@ -3472,6 +3474,21 @@ baseNow:
     /* check base fields already cached (by TZ, last-second cache) */
     if ( dataPtr->lastBase.timezoneObj == opts->timezoneObj
       && dataPtr->lastBase.date.seconds == baseVal) {
+	canUseLastBase = 1;
+	/*
+	 * There's one exception: If TZ changed, and if timezone is just the
+	 * :localtime placeholder, then it's not safe to re-use the cached
+	 * base time.
+	 */
+	if ( oldTZEpoch != dataPtr->lastTZEpoch
+	  && opts->timezoneObj->length == dataPtr->literals[LIT_LOCALTIME]->length
+	  && !memcmp(opts->timezoneObj->bytes, dataPtr->literals[LIT_LOCALTIME]->bytes, opts->timezoneObj->length)
+	) {
+	    canUseLastBase = 0;
+	}
+    }
+
+    if ( canUseLastBase ) {
 	memcpy(date, &dataPtr->lastBase.date, ClockCacheableDateFieldsSize);
     } else {
 	/* extact fields from base */
