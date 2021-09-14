@@ -17,7 +17,7 @@ dnl	to configure the system for the local environment.
 # so you can encode the package version directly into the source files.
 #-----------------------------------------------------------------------
 
-AC_INIT([tclclockmod], [8.6.706])
+AC_INIT([tclclockmod], [8.6.707])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -129,7 +129,21 @@ TEA_ADD_SOURCES([generic/tclClock.c           \
 
 #TEA_ADD_STUB_SOURCES([])
 
-TEA_ADD_TCL_SOURCES([lib/clock.tcl])
+TEA_ADD_TCL_SOURCES([lib/clock.tcl.in])
+
+#--------------------------------------------------------------------
+# Add --with-tzpath flag to set zoneinfo directory
+#--------------------------------------------------------------------
+AC_MSG_CHECKING([where to find tzdata zoneinfo])
+AC_ARG_WITH(tzpath, [  --with-tzpath        directory containing zoneinfo], with_tzpath=${withval}, with_tzpath=no)
+if test x"${with_tzpath}" = x"no"; then
+    AC_MSG_RESULT([use default])
+    TZPATH="/usr/share/zoneinfo /usr/share/lib/zoneinfo /usr/lib/zoneinfo /usr/local/etc/zoneinfo"
+else
+    AC_MSG_RESULT([${with_tzpath}])
+    TZPATH=${with_tzpath}
+fi
+AC_SUBST(TZPATH)
 
 #--------------------------------------------------------------------
 # __CHANGE__
@@ -218,4 +232,4 @@ TEA_PROG_TCLSH
 # which require substituting th AC variables in.  Include these here.
 #--------------------------------------------------------------------
 
-AC_OUTPUT([Makefile pkgIndex.tcl])
+AC_OUTPUT([Makefile pkgIndex.tcl lib/clock.tcl])
