@@ -65,10 +65,8 @@ be used also with previous versions since 8.6.0 (note that some packages like
 Code status (CI):
 -----------------
 
-* travis-ci.org:
-  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg?branch=master)](https://travis-ci.org/sebres/tclclockmod) (master)
-  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg)](https://travis-ci.org/sebres/tclclockmod) (latest)
-
+* GH-actions:
+  - [![CI-nix](https://github.com/sebres/tclclockmod/actions/workflows/ci-nix.yml/badge.svg)](https://github.com/sebres/tclclockmod/actions/workflows/ci-nix.yml)
 
 Contact:
 --------
