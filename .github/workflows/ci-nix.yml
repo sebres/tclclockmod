@@ -1,0 +1,79 @@
+name: CI-nix
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    paths-ignore:
+    - 'doc/**'
+  pull_request:
+    paths-ignore:
+    - 'doc/**'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        compiler: [gcc, clang]
+
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        if: matrix.os != 'macos-latest'
+        run: |
+          sudo apt-get install tcl tcl-dev
+      
+      # - name: Install dependencies MacOS
+      #   if: matrix.os == 'macos-latest'
+      #   run: |
+      #     sudo brew install tcl-devel
+
+      - name: Pre-requirements
+        run: |
+          test -d tclconfig || git clone https://github.com/tcltk/tclconfig.git ./tclconfig
+
+      - name: Software versions tcl/${{ matrix.compiler }}
+        run: |
+          echo "${{ matrix.COMPILER }}: $(${{ matrix.COMPILER }} --version)"
+          echo "TCL: $(echo puts [info patchlevel] | tclsh)"
+
+      - name: Configure ${{ matrix.compiler }}
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          test -d configure || autoreconf -f
+          mkdir ./unix/build-${{ matrix.compiler }}
+
+      - name: Build ${{ matrix.compiler }}
+        working-directory: ./unix/build-${{ matrix.compiler }}
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          ../../configure --with-tcl=/usr/lib/tcl8.6
+          make
+
+      - name: Test ${{ matrix.compiler }}
+        working-directory: ./unix/build-${{ matrix.compiler }}
+        run: |
+          echo $TZ; timedatectl status
+          # tclsh ../../tests/all.tcl
+          make test
+
+      - name: Install ${{ matrix.compiler }}
+        working-directory: ./unix/build-${{ matrix.compiler }}
+        run: |
+          sudo make install
+          echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
+
+      - name: Clean ${{ matrix.compiler }}
+        working-directory: ./unix/build-${{ matrix.compiler }}
+        run: |
+          make clean
+

@@ -187,6 +187,8 @@ typedef enum ClockMsgCtLiteral {
  * Structure containing the fields used in [clock format] and [clock scan]
  */
 
+#define CLF_CTZ		(1 << 4)
+
 typedef struct TclDateFields {
 
     /* Cacheable fields:	 */
@@ -211,6 +213,8 @@ typedef struct TclDateFields {
     int minutes;		/* Minutes of hour (in-between time only calculation) */
     int secondOfMin;		/* Seconds of minute (in-between time only calculation) */
     int secondOfDay;		/* Seconds of day (in-between time only calculation) */
+
+    int flags;			/* 0 or CLF_CTZ */
 
     /* Non cacheable fields:	 */
 
