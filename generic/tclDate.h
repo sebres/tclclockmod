@@ -118,7 +118,6 @@ typedef enum ClockLiteral {
     LIT_BCE,		LIT_CE,
     LIT_DAYOFMONTH,	LIT_DAYOFWEEK,		LIT_DAYOFYEAR,
     LIT_ERA,		LIT_GMT,		LIT_GREGORIAN,
-    LIT_LOCALTIME,
     LIT_INTEGER_VALUE_TOO_LARGE,
     LIT_ISO8601WEEK,	LIT_ISO8601YEAR,
     LIT_JULIANDAY,	LIT_LOCALSECONDS,
@@ -141,7 +140,6 @@ typedef enum ClockLiteral {
     "BCE",		"CE", \
     "dayOfMonth",	"dayOfWeek",		"dayOfYear", \
     "era",		":GMT",			"gregorian", \
-    ":localtime", \
     "integer value too large to represent", \
     "iso8601Week",	"iso8601Year", \
     "julianDay",	"localSeconds", \
