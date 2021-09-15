@@ -36,8 +36,14 @@ proc ::clock args {
   # load library:
   load [lindex $lib 0]
 
+  # local lib/clock.tcl (in build directory):
+  set lib [file join [file dirname [lindex $lib 0]] lib]
+  if {[file isfile [file join $lib clock.tcl]]} {
+    set ::tcl::clock::LibDir $lib
+  }
   # overload new tcl-clock stubs:
   source [file join $::tcl::clock::LibDir clock.tcl]
+  # LibDir is overwritten after load of clock.tcl, and it points to tcl-library.
 
   # and ensemble:
   set cmdmap [dict create]
