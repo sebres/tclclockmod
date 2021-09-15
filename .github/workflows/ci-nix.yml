@@ -48,7 +48,7 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: |
-          test -d configure || autoreconf -f
+          test -f configure && echo "configure already exists in $(pwd) ..." || autoreconf -f
           mkdir ./unix/build-${{ matrix.compiler }}
 
       - name: Build ${{ matrix.compiler }}
