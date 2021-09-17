@@ -23,8 +23,10 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v2
-
+      - name: Checkout
+        uses: actions/checkout@v2
+        # with:
+        #   submodules: recursive
       - name: Install dependencies
         if: matrix.os != 'macos-latest'
         run: |
@@ -37,8 +39,14 @@ jobs:
 
       - name: Pre-requirements
         run: |
-          test -d tclconfig || git clone https://github.com/tcltk/tclconfig.git ./tclconfig
-
+          test -f ../tclconfig/tcl.m4 && echo "use ../tclconfig" || {
+            test -f tclconfig/tcl.m4 && echo "use ./tclconfig" || \
+              echo 'checkout tclconfig module ...' && \
+              git submodule update --init --recursive tclconfig && echo "tclconfig module is up-to-date" || {
+                echo 'checkout modules failed, clone ...' && \
+                git clone https://github.com/tcltk/tclconfig.git ../tclconfig
+              }
+          }
       - name: Software versions tcl/${{ matrix.compiler }}
         run: |
           echo "${{ matrix.COMPILER }}: $(${{ matrix.COMPILER }} --version)"
