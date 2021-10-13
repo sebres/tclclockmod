@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/flightaware/tclclockmod.svg?branch=master)](https://travis-ci.org/flightaware/tclclockmod)
+[![Build status](https://github.com/flightaware/tclclockmod/actions/workflows/linux-ci.yml/badge.svg)](https://github.com/flightaware/tclclockmod/actions/workflows/linux-ci.yml)
 
           _____   _  ___ _         _   __  __         _ 
          |_   _|_| |/ __| |___  __| |_|  \/  |___  __| |
@@ -63,12 +63,6 @@ The module is currently usable with latest Tcl 8.6th version (>= 8.6.6), but can
 be used also with previous versions since 8.6.0 (note that some packages like 
 "msgcat" should be upgraded in this case).
 
-Code status (CI):
------------------
-
-* travis-ci.org:
-  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg?branch=master)](https://travis-ci.org/sebres/tclclockmod) (master)
-  - [![Build Status](https://travis-ci.org/sebres/tclclockmod.svg)](https://travis-ci.org/sebres/tclclockmod) (latest)
 
 Differences from base clock
 ===========================
