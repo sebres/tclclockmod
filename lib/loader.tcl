@@ -6,7 +6,7 @@ proc ::clock args {
   # first try from lib directory (like installed):
   set lib [glob -nocomplain [file join $::tcl::clock::LibDir tclclockmod*[info sharedlibextension]]]
   # second try find library from current directory (debug, release, platform etc.),
-  # hereafter in path relative current lib (like unistalled):
+  # hereafter in path relative current lib (like uninstalled):
   if {![llength $lib]} {
     foreach plib [list [pwd] [file dirname $::tcl::clock::LibDir]] {
       # now from unix, win, Release:
@@ -33,8 +33,19 @@ proc ::clock args {
   # load library:
   load [lindex $lib 0]
 
-  # overload new tcl-clock stubs:
-  source [file join $::tcl::clock::LibDir clock.tcl]
+
+  # first try from the lib directory (like installed):
+  # second try to find in the same directory as the shared library.
+  set ensemble [glob -nocomplain [file join $::tcl::clock::LibDir clock.tcl] \
+                 [file join [file dirname [lindex $lib 0]] clock.tcl] \
+                 [file join [file dirname [lindex $lib 0]] lib/clock.tcl] \
+                ]
+  if {![llength $ensemble]} {
+    error "tclclockmod ensemble file not found relative \"[pwd]\"."
+  }
+
+  # overload new tcl-clock ensemble file:
+  source [lindex $ensemble 0]
 
   # and ensemble:
   set cmdmap [dict create]

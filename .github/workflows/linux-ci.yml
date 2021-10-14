@@ -56,7 +56,7 @@ jobs:
 
       - name: runtime test
         run: |
-          echo 'if {[catch {package require tclclockmod; clock format -now}]} {puts stderr "ERROR!"; exit 1} else {puts "OK."}' | tclsh
+          echo 'if {[catch {package require tclclockmod; clock format -now} catchResult]} {puts stderr "ERROR! $catchResult"; exit 1} else {puts "OK."}' | tclsh
 
       - name: clean
         run: |

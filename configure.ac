@@ -17,7 +17,7 @@ dnl	to configure the system for the local environment.
 # so you can encode the package version directly into the source files.
 #-----------------------------------------------------------------------
 
-AC_INIT([tclclockmod], [8.6.707])
+AC_INIT([tclclockmod], [8.6.709])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -129,7 +129,7 @@ TEA_ADD_SOURCES([generic/tclClock.c           \
 
 #TEA_ADD_STUB_SOURCES([])
 
-TEA_ADD_TCL_SOURCES([lib/clock.tcl.in])
+
 
 #--------------------------------------------------------------------
 # Add --with-tzpath flag to set zoneinfo directory
