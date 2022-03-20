@@ -1375,24 +1375,20 @@ ClockSetupTimeZone(
 
 Tcl_Obj *
 ClockFormatNumericTimeZone(int z) {
-    char buf[12+1];
-    int h, m;
+    char buf[12+1], *p;
 
-    *buf = '+';
     if ( z < 0 ) {
 	z = -z;
 	*buf = '-';
-    }
-    h = z / 3600;
-    z %= 3600;
-    m = z / 60;
-    z %= 60;
-    if (z != 0) {
-	sprintf(&buf[1], "%02d%02d%02d", h, m, z);
     } else {
-    	sprintf(&buf[1], "%02d%02d", h, m);
+	*buf = '+';
     }
-    return Tcl_NewStringObj(buf, -1);
+    TclItoAw(buf+1, z / 3600, '0', 2);   z %= 3600;
+    p = TclItoAw(buf+3, z / 60, '0', 2); z %= 60;
+    if (z != 0) {
+	p = TclItoAw(buf+5, z, '0', 2);
+    }
+    return Tcl_NewStringObj(buf, p - buf);
 }
 
 /*
@@ -2365,7 +2361,7 @@ ConvertUTCToLocalUsingC(
     time_t tock;
     struct tm *timeVal;		/* Time after conversion */
     int diff;			/* Time zone diff local-Greenwich */
-    char buffer[8];		/* Buffer for time zone name */
+    char buffer[8], *p;		/* Buffer for time zone name */
 
     /*
      * Use 'localtime' to determine local year, month, day, time of day.
@@ -2418,14 +2414,12 @@ ConvertUTCToLocalUsingC(
     } else {
 	*buffer = '+';
     }
-    sprintf(buffer+1, "%02d", diff / 3600);
-    diff %= 3600;
-    sprintf(buffer+3, "%02d", diff / 60);
-    diff %= 60;
-    if (diff > 0) {
-	sprintf(buffer+5, "%02d", diff);
+    TclItoAw(buffer+1, diff / 3600, '0', 2);   diff %= 3600;
+    p = TclItoAw(buffer+3, diff / 60, '0', 2); diff %= 60;
+    if (diff != 0) {
+    	p = TclItoAw(buffer+5, diff, '0', 2);
     }
-    Tcl_SetObjRef(fields->tzName, Tcl_NewStringObj(buffer, -1));
+    Tcl_SetObjRef(fields->tzName, Tcl_NewStringObj(buffer, p - buffer));
     return TCL_OK;
 }
 
