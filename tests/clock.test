@@ -18637,6 +18637,23 @@ test clock-5.803 {time zone boundary case 2099-11-01 01:00:01} {detroit y2038} {
     clock format 4097196001 -format {%H:%M:%S %z %Z} \
         -timezone :America/Detroit
 } {01:00:01 -0500 EST}
+
+test clock-5.805 {format with complex TZ} {
+    set res {}
+    foreach tz {:Australia/Sydney +1000 GMT+10 GMT+1000 GMT+10:00 GMT+10:00:00 UTC+10 UTC+1000 UTC+10:00 UTC+10:00:00} {
+	lappend res [clock format 110000000 -format {%Y-%m-%d %H:%M:%S %z %Z} -timezone $tz]
+    }
+    set res
+} [lmap i {AEST +1000 GMT+10 GMT+1000 GMT+10:00 GMT+10:00:00 UTC+10 UTC+1000 UTC+10:00 UTC+10:00:00} \
+    {concat "1973-06-27 13:33:20 +1000" $i}]
+test clock-5.806 {format with complex TZ} {
+    set res {}
+    foreach tz {CET +0100 +01:00 GMT+1 GMT+01 GMT+0100 GMT+01:00 GMT+01:00:00 UTC+1 UTC+01 UTC+0100 UTC+01:00 UTC+01:00:00} {
+	lappend res [clock format 100000000 -format {%Y-%m-%d %H:%M:%S %z %Z} -timezone $tz]
+    }
+    set res
+} [lmap i {CET +0100 +01:00 GMT+1 GMT+01 GMT+0100 GMT+01:00 GMT+01:00:00 UTC+1 UTC+01 UTC+0100 UTC+01:00 UTC+01:00:00} \
+    {concat "1973-03-03 10:46:40 +0100" $i}]
 # END testcases5
 
 # Test input conversions.
