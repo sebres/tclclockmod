@@ -36307,12 +36307,36 @@ test clock-34.20.16 {clock scan tests (complex TZ)} {
 	 [clock format [clock scan "00:00 +1000" -base 100000000 -gmt 1] -gmt 1] \
 	 [clock format [clock scan "00:00" -base 100000000 -timezone +1000] -gmt 1]
 } [lrepeat 4 "Fri Mar 02 14:00:00 GMT 1973"]
+test clock-34.20.16b {clock scan tests (complex TZ in -timezone parameter)} {
+    list [clock format [clock scan "00:00" -base 100000000 -timezone +1000] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+10] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+1000] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+10:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+10:00:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+10] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+1000] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+10:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+10:00:00] -gmt 1]
+} [lrepeat 9 "Fri Mar 02 14:00:00 GMT 1973"]
 test clock-34.20.17 {clock scan tests (complex TZ)} {
     list [clock format [clock scan "00:00 GMT+0100" -base 100000000 -gmt 1] -gmt 1] \
 	 [clock format [clock scan "00:00 GMT+01" -base 100000000 -gmt 1] -gmt 1] \
 	 [clock format [clock scan "00:00 GMT+1" -base 100000000 -gmt 1] -gmt 1] \
 	 [clock format [clock scan "00:00" -base 100000000 -timezone +0100] -gmt 1]
 } [lrepeat 4 "Fri Mar 02 23:00:00 GMT 1973"]
+test clock-34.20.17b {clock scan tests (complex TZ in -timezone parameter)} {
+    list [clock format [clock scan "00:00" -base 100000000 -timezone +0100] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+1] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+01] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+0100] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+01:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone GMT+01:00:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+1] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+01] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+0100] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+01:00] -gmt 1] \
+	 [clock format [clock scan "00:00" -base 100000000 -timezone UTC+01:00:00] -gmt 1]
+} [lrepeat 11 "Fri Mar 02 23:00:00 GMT 1973"]
 test clock-34.20.18 {clock scan tests (no TZ)} {
     list [clock scan "1000days" -base 100000000 -gmt 1] \
 	 [clock scan "1000 days" -base 100000000 -gmt 1] \

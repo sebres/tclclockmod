@@ -970,10 +970,10 @@ proc ::tcl::clock::SetupTimeZone { timezone {alias {}} } {
 	}
 	variable MINWIDE
 	if {
-	    [regexp {^([-+])(\d\d)(?::?(\d\d)(?::?(\d\d))?)?} $timezone \
+	    [regexp {^(?:GMT|UTC)?([-+])(\d\d?)(?::?(\d\d)(?::?(\d\d))?)?$} $timezone \
 		    -> s hh mm ss]
 	} then {
-	    # Make a fixed offset
+	    # Make a fixed offset (zone as offset relative GMT/UTC)
 
 	    ::scan $hh %d hh
 	    if { $mm eq {} } {
