@@ -182,8 +182,16 @@ EnvEpochTraceProc(
 int TclpCompileEnsemblObjCmd(
     ClientData unused, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
+    int ensFlags = 0;
     Tcl_Command token = Tcl_FindCommand(interp, "clock", NULL, TCL_GLOBAL_ONLY);
-    return Tcl_SetEnsembleFlags(interp, token, ENSEMBLE_COMPILE);
+    if (!token) {
+	return TCL_ERROR;
+    }
+    if (Tcl_GetEnsembleFlags(interp, token, &ensFlags) != TCL_OK) {
+	return TCL_ERROR;
+    }
+    ensFlags |= ENSEMBLE_COMPILE;
+    return Tcl_SetEnsembleFlags(interp, token, ensFlags);
 }
 
 
