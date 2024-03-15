@@ -89,7 +89,7 @@
 typedef struct _TABLE {
     const char *name;
     int type;
-    Tcl_WideInt value;
+    long long value;
 } TABLE;
 
 /*
@@ -103,7 +103,7 @@ typedef enum _DSTMODE {
 %}
 
 %union {
-    Tcl_WideInt Number;
+    long long Number;
     enum _MERIDIAN Meridian;
 }
 
@@ -877,11 +877,6 @@ LookupWord(
     return tID;
 }
 
-/* int overflows may happens here (expected case) */
-#if defined(__GNUC__) || defined(__GNUG__)
-# pragma GCC optimize("no-trapv")
-#endif
-
 static int
 TclDatelex(
     YYSTYPE* yylvalPtr,
@@ -912,7 +907,7 @@ TclDatelex(
 	    /*
 	     * Convert the string into a number; count the number of digits.
 	     */
-	    int num = c - '0';
+	    long long num = c - '0';
 	    p = (char *)yyInput;
 	    while (isdigit(UCHAR(c = *(++p)))) {
 		if (num >= 0) {
@@ -944,7 +939,7 @@ TclDatelex(
 		    location->last_column = yyInput - info->dateStart - 1;
 		    return tISOBASL;
 		}
-		if (num < 0) { /* overflow */
+		if (yyDigitCount > 14) { /* overflow */
 		    return tID;
 		}
 		if (yyDigitCount == 8) {
@@ -1019,10 +1014,6 @@ TclDatelex(
 	} while (Count > 0);
     }
 }
-
-#if defined(__GNUC__) || defined(__GNUG__)
-# pragma GCC reset_options
-#endif
 
 int
 TclClockFreeScan(
