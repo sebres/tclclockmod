@@ -78,8 +78,9 @@
  *	This file is generated from a yacc grammar defined in the file
  *	tclGetDate.y. It should not be edited directly.
  *
- * Copyright (c) 1992-1995 Karl Lehenbauer and Mark Diekhans.
- * Copyright (c) 1995-1997 Sun Microsystems, Inc.
+ * Copyright © 1992-1995 Karl Lehenbauer & Mark Diekhans.
+ * Copyright © 1995-1997 Sun Microsystems, Inc.
+ * Copyright © 2015 Sergey G. Brester aka sebres.
  *
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
@@ -121,9 +122,8 @@
 
 #define TM_YEAR_BASE	1900
 
-#define HOUR(x)		((int) (60 * x))
-#define SECSPERDAY	(24L * 60L * 60L)
-#define IsLeapYear(x)	((x % 4 == 0) && (x % 100 != 0 || x % 400 == 0))
+#define HOUR(x)		((60 * (int)(x)))
+#define IsLeapYear(x)	(((x) % 4 == 0) && ((x) % 100 != 0 || (x) % 400 == 0))
 
 #define yyIncrFlags(f)				\
     do {					\
@@ -136,10 +136,10 @@
  * An entry in the lexical lookup table.
  */
 
-typedef struct _TABLE {
+typedef struct {
     const char *name;
     int type;
-    long long value;
+    int value;
 } TABLE;
 
 /*
@@ -262,9 +262,9 @@ int TclDateparse (DateInfo* info);
  */
 
 static int		LookupWord(YYSTYPE* yylvalPtr, char *buff);
- static void		TclDateerror(YYLTYPE* location,
+static void		TclDateerror(YYLTYPE* location,
 				     DateInfo* info, const char *s);
- static int		TclDatelex(YYSTYPE* yylvalPtr, YYLTYPE* location,
+static int		TclDatelex(YYSTYPE* yylvalPtr, YYLTYPE* location,
 				   DateInfo* info);
 MODULE_SCOPE int	yyparse(DateInfo*);
 
@@ -2537,17 +2537,17 @@ ToSeconds(
 	if (Hours < 0 || Hours > 23) {
 	    return -1;
 	}
-	return (Hours * 60L + Minutes) * 60L + Seconds;
+	return (Hours * 60 + Minutes) * 60 + Seconds;
     case MERam:
 	if (Hours < 1 || Hours > 12) {
 	    return -1;
 	}
-	return ((Hours % 12) * 60L + Minutes) * 60L + Seconds;
+	return ((Hours % 12) * 60 + Minutes) * 60 + Seconds;
     case MERpm:
 	if (Hours < 1 || Hours > 12) {
 	    return -1;
 	}
-	return (((Hours % 12) + 12) * 60L + Minutes) * 60L + Seconds;
+	return (((Hours % 12) + 12) * 60 + Minutes) * 60 + Seconds;
     }
     return -1;			/* Should never be reached */
 }
@@ -2756,7 +2756,7 @@ TclDatelex(
 	    int ret;
 	    for (p = buff; isalpha(UCHAR(c = *yyInput++)) /* INTL: ISO only. */
 		     || c == '.'; ) {
-		if (p < &buff[sizeof buff - 1]) {
+		if (p < &buff[sizeof(buff) - 1]) {
 		    *p++ = c;
 		}
 	    }
