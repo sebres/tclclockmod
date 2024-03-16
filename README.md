@@ -6,12 +6,12 @@
            v.8.6.7-03                         2018/12/03
                                                        
 
-## TclClockMod: the fastest, most powerful Tcl clock engine written in C
+## TclClockMod: the [fastest, most powerful](#performance-) Tcl clock engine written in C
 
 What is this ?
 ==============
 
-This is the source distribution of the Tcl clock extension: the faster 
+This is the source distribution of the Tcl clock extension: the [faster](#performance-) 
 Tcl-module for the replacement of the standard "clock" ensemble of tcl.
 
 You need to have your Tcl core compiled also.
