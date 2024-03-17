@@ -9,8 +9,8 @@
 #
 #----------------------------------------------------------------------
 #
-# Copyright (c) 2004,2005,2006,2007 by Kevin B. Kenny
-# Copyright (c) 2015 by Sergey G. Brester aka sebres.
+# Copyright © 2004-2007 Kevin B. Kenny
+# Copyright © 2015 by Sergey G. Brester aka sebres.
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
@@ -214,7 +214,7 @@ proc ::tcl::clock::Initialize {} {
 
     ::msgcat::mcset ru GREGORIAN_CHANGE_DATE 2421639
 
-    # Romania (Transylvania changed earler - perhaps de_RO should show the
+    # Romania (Transylvania changed earlier - perhaps de_RO should show the
     # earlier date?)
 
     ::msgcat::mcset ro GREGORIAN_CHANGE_DATE 2422063
@@ -909,8 +909,7 @@ proc ::tcl::clock::GetSystemTimeZone {} {
 	set timezone $result
     } elseif {[set result [getenv TZ]] ne {}} {
 	set timezone $result
-    }
-    if {![info exists timezone]} {
+    } else {
         # ask engine for the cached timezone:
         set timezone [configure -system-tz]
         if { $timezone ne "" } {
@@ -1317,7 +1316,7 @@ proc ::tcl::clock::ReadZoneinfoFile {fileName fname} {
     close $f
 
     # The file begins with a magic number, sixteen reserved bytes, and then
-    # six 4-byte integers giving counts of fileds in the file.
+    # six 4-byte integers giving counts of fields in the file.
 
     binary scan $d a4a1x15IIIIII \
 	magic version nIsGMT nIsStd nLeap nTime nType nChar
@@ -2046,7 +2045,6 @@ proc ::tcl::clock::WeekdayOnOrBefore { weekday j } {
 #----------------------------------------------------------------------
 
 proc ::tcl::clock::ChangeCurrentLocale {args} {
-
     configure -current-locale [lindex $args 0]
 }
 
