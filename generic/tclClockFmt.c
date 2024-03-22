@@ -56,7 +56,7 @@ static void ClockFrmScnFinalize(ClientData clientData);
  *----------------------------------------------------------------------
  */
 
-/* int overflows may happens here (expected case) */
+/* int & Tcl_WideInt overflows may happens here (expected case) */
 #if defined(__GNUC__) || defined(__GNUG__)
 # pragma GCC optimize("no-trapv")
 #endif
@@ -69,22 +69,33 @@ _str2int(
     const char *e,
     int sign)
 {
-    register int val = 0, prev = 0;
+    register int val = 0;
+    /* overflow impossible for 10 digits ("9..9"), so no needs to check before */
+    const char *eNO = p+10;
+    if (eNO > e) {
+	eNO = e;
+    }
     if (sign >= 0) {
-	while (p < e) {
+	while (p < eNO) {			/* never overflows */
 	    val = val * 10 + (*p++ - '0');
-	    if (val < prev) {
+	}
+	while (p < e) {				/* check for overflow */
+	    int prev = val;
+	    val = val * 10 + (*p++ - '0');
+	    if (val / 10 < prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     } else {
-	while (p < e) {
+	while (p < eNO) {			/* never overflows */
 	    val = val * 10 - (*p++ - '0');
-	    if (val > prev) {
+	}
+	while (p < e) {				/* check for overflow */
+	    int prev = val;
+	    val = val * 10 - (*p++ - '0');
+	    if (val / 10 > prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     }
     *out = val;
@@ -99,22 +110,33 @@ _str2wideInt(
     const char	*e,
     int sign)
 {
-    register Tcl_WideInt val = 0, prev = 0;
+    register Tcl_WideInt val = 0;
+    /* overflow impossible for 18 digits ("9..9"), so no needs to check before */
+    const char *eNO = p+18;
+    if (eNO > e) {
+	eNO = e;
+    }
     if (sign >= 0) {
-	while (p < e) {
+	while (p < eNO) {			/* never overflows */
 	    val = val * 10 + (*p++ - '0');
-	    if (val < prev) {
+	}
+	while (p < e) {				/* check for overflow */
+	    Tcl_WideInt prev = val;
+	    val = val * 10 + (*p++ - '0');
+	    if (val / 10 < prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     } else {
-	while (p < e) {
+	while (p < eNO) {			/* never overflows */
 	    val = val * 10 - (*p++ - '0');
-	    if (val > prev) {
+	}
+	while (p < e) {				/* check for overflow */
+	    Tcl_WideInt prev = val;
+	    val = val * 10 - (*p++ - '0');
+	    if (val / 10 > prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     }
     *out = val;
