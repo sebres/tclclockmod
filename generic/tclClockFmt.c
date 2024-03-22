@@ -56,6 +56,42 @@ static void ClockFrmScnFinalize(ClientData clientData);
  *----------------------------------------------------------------------
  */
 
+static inline void
+_str2int_no(
+    int	       *out,
+    register
+    const char *p,
+    const char *e,
+    int sign)
+{
+    /* assert(e <= p+10); */
+    register int val = 0;
+    /* overflow impossible for 10 digits ("9..9"), so no needs to check at all */
+    while (p < e) {			/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
+    if (sign < 0) { val = -val; }
+    *out = val;
+}
+
+static inline void
+_str2wideInt_no(
+    Tcl_WideInt *out,
+    register
+    const char	*p,
+    const char	*e,
+    int sign)
+{
+    /* assert(e <= p+18); */
+    register Tcl_WideInt val = 0;
+    /* overflow impossible for 18 digits ("9..9"), so no needs to check at all */
+    while (p < e) {			/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
+    if (sign < 0) { val = -val; }
+    *out = val;
+}
+
 /* int & Tcl_WideInt overflows may happens here (expected case) */
 #if defined(__GNUC__) || defined(__GNUG__)
 # pragma GCC optimize("no-trapv")
@@ -75,10 +111,10 @@ _str2int(
     if (eNO > e) {
 	eNO = e;
     }
+    while (p < eNO) {				/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
     if (sign >= 0) {
-	while (p < eNO) {			/* never overflows */
-	    val = val * 10 + (*p++ - '0');
-	}
 	while (p < e) {				/* check for overflow */
 	    int prev = val;
 	    val = val * 10 + (*p++ - '0');
@@ -87,9 +123,7 @@ _str2int(
 	    }
 	}
     } else {
-	while (p < eNO) {			/* never overflows */
-	    val = val * 10 - (*p++ - '0');
-	}
+	val = -val;
 	while (p < e) {				/* check for overflow */
 	    int prev = val;
 	    val = val * 10 - (*p++ - '0');
@@ -116,10 +150,10 @@ _str2wideInt(
     if (eNO > e) {
 	eNO = e;
     }
+    while (p < eNO) {				/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
     if (sign >= 0) {
-	while (p < eNO) {			/* never overflows */
-	    val = val * 10 + (*p++ - '0');
-	}
 	while (p < e) {				/* check for overflow */
 	    Tcl_WideInt prev = val;
 	    val = val * 10 + (*p++ - '0');
@@ -128,9 +162,7 @@ _str2wideInt(
 	    }
 	}
     } else {
-	while (p < eNO) {			/* never overflows */
-	    val = val * 10 - (*p++ - '0');
-	}
+	val = -val;
 	while (p < e) {				/* check for overflow */
 	    Tcl_WideInt prev = val;
 	    val = val * 10 - (*p++ - '0');
@@ -1865,7 +1897,7 @@ static ClockScanTokenMap ScnSTokenMap[] = {
 	NULL},
     /* %b %B %h */
     {CTOKT_PARSER, CLF_MONTH, 0, 0, 0xffff, 0,
-	    ClockScnToken_Month_Proc},
+	    ClockScnToken_Month_Proc, NULL},
     /* %y */
     {CTOKT_INT, CLF_YEAR, 0, 1, 2, TclOffset(DateInfo, date.year),
 	NULL},
@@ -2335,15 +2367,30 @@ ClockScan(
 	    if (map->offs) {
 		p = yyInput; x = p + size;
 		if (map->type == CTOKT_INT) {
-		    if (_str2int((int *)(((char *)info) + map->offs),
-			    p, x, sign) != TCL_OK) {
+		    if (size <= 10) {
+			_str2int_no((int *)(((char *)info) + map->offs),
+				p, x, sign);
+		    } else {
+			/* we don't have such large scan tokens at the moment */
 			goto overflow;
+			/* currently unused (maxSize of CTOKT_INT tokens <= 10) */
+			#if 0
+			if (_str2int((int *)(((char *)info) + map->offs),
+				p, x, sign) != TCL_OK) {
+			    goto overflow;
+			}
+			#endif
 		    }
 		    p = x;
 		} else {
-		    if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
-			    p, x, sign) != TCL_OK) {
-			goto overflow;
+		    if (size <= 18) {
+			_str2wideInt_no((Tcl_WideInt *)(((char *)info) + map->offs),
+				p, x, sign);
+		    } else {
+			if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
+				p, x, sign) != TCL_OK) {
+			    goto overflow;
+			}
 		    }
 		    p = x;
 		}
