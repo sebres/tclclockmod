@@ -175,6 +175,16 @@ _str2wideInt(
     return TCL_OK;
 }
 
+int
+TclAtoWIe(
+    Tcl_WideInt *out,
+    const char	*p,
+    const char	*e,
+    int sign)
+{
+    return _str2wideInt(out, p, e, sign);
+}
+
 #if defined(__GNUC__) || defined(__GNUG__)
 # pragma GCC reset_options
 #endif
