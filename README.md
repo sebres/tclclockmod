@@ -21,6 +21,8 @@ virtually anything you like with it, such as modifying it, redistributing
 it, and selling it either in whole or in part.  See the "license.terms"
 file in the top-level distribution directory for complete information.
 
+Now this clock-engine is a part of Tcl 8.7 / 9.0.
+
 How to compile ?
 ----------------
 
@@ -73,6 +75,8 @@ test it with your application.
 The module is currently usable with latest Tcl 8.6th version (>= 8.6.6), but can
 be used also with previous versions since 8.6.0 (note that some packages like 
 "msgcat" should be upgraded in this case).
+
+Since [TIP 688](https://core.tcl-lang.org/tips/doc/trunk/tip/688.md) (commits [GH/tcl/e736133f9c72](https://github.com/tcltk/tcl/commit/e736133f9c72a69186f1d6845b5fb52de03c23ab) or [CORE/tcl/7137ea11e9e343f6](https://core.tcl-lang.org/tcl/info/7137ea11e9e343f6)) this is a part of Tcl 8.7 / 9.0 and therefore fully compatible to newest core-tcl now, excepting few things (like `clock configure` -> `tcl::unsupported::clock::configure`).
 
 Code status (CI):
 -----------------
