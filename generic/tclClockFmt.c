@@ -32,8 +32,6 @@ TCL_DECLARE_MUTEX(ClockFmtMutex); /* Serializes access to common format list. */
 
 static void ClockFmtScnStorageDelete(ClockFmtScnStorage *fss);
 
-static void ClockFrmScnFinalize(ClientData clientData);
-
 /*
  * Clock scan and format facilities.
  */
@@ -642,7 +640,7 @@ ClockFmtObj_FreeInternalRep(objPtr)
     Tcl_Obj *objPtr;
 {
     ClockFmtScnStorage *fss = ObjClockFmtScn(objPtr);
-    if (fss != NULL) {
+    if (fss != NULL && initialized) {
 	Tcl_MutexLock(&ClockFmtMutex);
 	/* decrement object reference count of format/scan storage */
 	if (--fss->objRefCount <= 0) {
@@ -796,7 +794,6 @@ FindOrCreateFmtScnStorage(
 	    &ClockFmtScnStorageHashKeyType);
 
 	initialized = 1;
-	Tcl_CreateExitHandler(ClockFrmScnFinalize, NULL);
     }
 
     /* get or create entry (and alocate storage) */
@@ -3443,10 +3440,12 @@ ClockFrmScnClearCaches(void)
     Tcl_MutexUnlock(&ClockFmtMutex);
 }
 
-static void
-ClockFrmScnFinalize(
-    ClientData clientData)  /* Not used. */
+void
+ClockFrmScnFinalize()
 {
+    if (!initialized) {
+	return;
+    }
     Tcl_MutexLock(&ClockFmtMutex);
 #if CLOCK_FMT_SCN_STORAGE_GC_SIZE > 0
     /* clear GC */
@@ -3455,8 +3454,8 @@ ClockFrmScnFinalize(
     ClockFmtScnStorage_GC.count = 0;
 #endif
     if (initialized) {
-	Tcl_DeleteHashTable(&FmtScnHashTable);
 	initialized = 0;
+	Tcl_DeleteHashTable(&FmtScnHashTable);
     }
     Tcl_MutexUnlock(&ClockFmtMutex);
     Tcl_MutexFinalize(&ClockFmtMutex);

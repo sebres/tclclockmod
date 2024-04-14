@@ -146,6 +146,7 @@ static void		ClockDeleteCmdProc(ClientData);
 static int		ClockSafeCatchCmd(
 			    ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
+static void		ClockFinalize(void *);
 /*
  * Structure containing description of "native" clock commands to create.
  */
@@ -211,6 +212,15 @@ TclClockInit(
     Command         *cmdPtr;
     ClockClientData *data;
     int i;
+
+    static int initialized = 0;	/* global clock engine initialized (in process) */
+    /*
+     * Register handler to finalize clock on exit.
+     */
+    if (!initialized) {
+	Tcl_CreateExitHandler(ClockFinalize, NULL);
+	initialized = 1;
+    }
 
     /*
      * Safe interps get [::clock] as alias to a master, so do not need their
@@ -378,12 +388,14 @@ ClockDeleteCmdProc(
 	    for (i = 0; i < MCLIT__END; ++i) {
 		Tcl_DecrRefCount(data->mcLiterals[i]);
 	    }
+	    ckfree(data->mcLiterals);
 	    data->mcLiterals = NULL;
 	}
 	if (data->mcLitIdxs != NULL) {
 	    for (i = 0; i < MCLIT__END; ++i) {
 		Tcl_DecrRefCount(data->mcLitIdxs[i]);
 	    }
+	    ckfree(data->mcLitIdxs);
 	    data->mcLitIdxs = NULL;
 	}
 
@@ -4659,12 +4671,11 @@ ClockSafeCatchCmd(
  *
  *----------------------------------------------------------------------
  */
-
+static char* tzWas = INT2PTR(-1);	 /* Previous value of TZ, protected by
+					  * clockMutex. */
 static size_t
 TzsetIfNecessary(void)
 {
-    static char* tzWas = INT2PTR(-1);	 /* Previous value of TZ, protected by
-					  * clockMutex. */
     static long	 tzLastRefresh = 0;	 /* Used for latency before next refresh */
     static size_t tzWasEpoch = 0;        /* Epoch, signals that TZ changed */
     static size_t tzEnvEpoch = 0;        /* Last env epoch, for faster signaling,
@@ -4709,6 +4720,17 @@ TzsetIfNecessary(void)
     Tcl_MutexUnlock(&clockMutex);
 
     return tzWasEpoch;
+}
+
+static void
+ClockFinalize(
+    ClientData clientData)
+{
+    ClockFrmScnFinalize();
+
+    if (tzWas && tzWas != INT2PTR(-1)) {
+	ckfree(tzWas);
+    }
 }
 
 /*
