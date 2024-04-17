@@ -32,6 +32,10 @@ TCL_DECLARE_MUTEX(ClockFmtMutex); /* Serializes access to common format list. */
 
 static void ClockFmtScnStorageDelete(ClockFmtScnStorage *fss);
 
+#ifndef TCL_CLOCK_FULL_COMPAT
+#define TCL_CLOCK_FULL_COMPAT 1
+#endif
+
 /*
  * Clock scan and format facilities.
  */
@@ -984,7 +988,8 @@ static const char *
 FindTokenBegin(
     register const char *p,
     register const char *end,
-    ClockScanToken *tok)
+    ClockScanToken *tok,
+    int flags)
 {
     char c;
     if (p < end) {
@@ -992,25 +997,33 @@ FindTokenBegin(
 	switch (tok->map->type) {
 	case CTOKT_INT:
 	case CTOKT_WIDE:
-	    /* should match at least one digit */
-	    while (!isdigit(UCHAR(*p)) && (p = Tcl_UtfNext(p)) < end) {};
+	    if (!(flags & CLF_STRICT)) {
+		/* should match at least one digit or space */
+		while (!isdigit(UCHAR(*p)) && !isspace(UCHAR(*p)) &&
+			(p = Tcl_UtfNext(p)) < end) {}
+	    } else {
+		/* should match at least one digit */
+		while (!isdigit(UCHAR(*p)) && (p = Tcl_UtfNext(p)) < end) {}
+	    }
 	    return p;
-	break;
 	case CTOKT_WORD:
 	    c = *(tok->tokWord.start);
-	    /* should match at least to the first char of this word */
-	    while (*p != c && (p = Tcl_UtfNext(p)) < end) {};
-	    return p;
-	break;
+	    goto findChar;
 	case CTOKT_SPACE:
 	    while (!isspace(UCHAR(*p)) && (p = Tcl_UtfNext(p)) < end) {};
 	    return p;
-	break;
 	case CTOKT_CHAR:
 	    c = *((char *)tok->map->data);
-	    while (*p != c && (p = Tcl_UtfNext(p)) < end) {};
+findChar:
+	    if (!(flags & CLF_STRICT)) {
+		/* should match the char or space */
+		while (*p != c && !isspace(UCHAR(*p)) &&
+			(p = Tcl_UtfNext(p)) < end) {}
+	    } else {
+		/* should match the char */
+		while (*p != c && (p = Tcl_UtfNext(p)) < end) {}
+	    }
 	    return p;
-	break;
 	}
     }
     return p;
@@ -1033,9 +1046,12 @@ FindTokenBegin(
  */
 
 static void
-DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
-    DateInfo *info, ClockScanToken *tok,
-    int *minLenPtr, int *maxLenPtr)
+DetermineGreedySearchLen(
+    ClockFmtScnCmdArgs *opts,
+    DateInfo *info,
+    ClockScanToken *tok,
+    int *minLenPtr,
+    int *maxLenPtr)
 {
     register int minLen = tok->map->minSize;
     register int maxLen;
@@ -1046,7 +1062,8 @@ DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
     if ((tok+1)->map) {
 	end -= tok->endDistance + yySpaceCount;
 	/* find position of next known token */
-	p = FindTokenBegin(p, end, tok+1);
+	p = FindTokenBegin(p, end, tok+1,
+		TCL_CLOCK_FULL_COMPAT ? opts->flags : CLF_STRICT);
 	if (p < end) {
 	    minLen = p - yyInput;
 	}
@@ -1089,10 +1106,10 @@ DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
 	}
 	p += tok->lookAhMin;
 	if (laTok->map && p < end) {
-	    const char *f;
 	    /* try to find laTok between [lookAhMin, lookAhMax] */
 	    while (minLen < maxLen) {
-		f = FindTokenBegin(p, end, laTok);
+		const char *f = FindTokenBegin(p, end, laTok,
+				    TCL_CLOCK_FULL_COMPAT ? opts->flags : CLF_STRICT);
 		/* if found (not below lookAhMax) */
 		if (f < end) {
 		    break;
