@@ -4731,6 +4731,8 @@ ClockFinalize(
     if (tzWas && tzWas != INT2PTR(-1)) {
 	ckfree(tzWas);
     }
+
+    Tcl_MutexFinalize(&clockMutex);
 }
 
 /*
