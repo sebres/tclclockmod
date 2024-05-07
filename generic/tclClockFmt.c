@@ -2075,14 +2075,13 @@ EstimateTokenCount(
     return ++tokcnt;
 }
 
-#define AllocTokenInChain(tok, chain, tokCnt) \
-    if (++(tok) >= (chain) + (tokCnt)) { \
-	chain = ckrealloc((char *)(chain), \
+#define AllocTokenInChain(tok, chain, tokCnt)				 \
+    if (++(tok) >= (chain) + (tokCnt)) {				 \
+	chain = ckrealloc((char *)(chain),				 \
 	    (tokCnt + CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE) * sizeof(*(tok))); \
-	if ((chain) == NULL) { goto done; }; \
-	(tok) = (chain) + (tokCnt); \
-	(tokCnt) += CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE; \
-    } \
+	(tok) = (chain) + (tokCnt);					 \
+	(tokCnt) += CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE;			 \
+    }									 \
     memset(tok, 0, sizeof(*(tok)));
 
 /*
@@ -2210,37 +2209,47 @@ ClockGetOrParseScanFormat(
 	    }
 	    break;
 	    default:
-	    if ( *p == ' ' || isspace(UCHAR(*p)) ) {
-		tok->map = &ScnSpaceTokenMap;
-		tok->tokWord.start = p++;
-		while (p < e && isspace(UCHAR(*p))) {
-		    p++;
+		if (isspace(UCHAR(*p))) {
+		    tok->map = &ScnSpaceTokenMap;
+		    tok->tokWord.start = p++;
+		    while (p < e && isspace(UCHAR(*p))) {
+			p++;
+		    }
+		    tok->tokWord.end = p;
+		    /* increase space count used in format */
+		    fss->scnSpaceCount++;
+		    /* next token */
+		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
+		    continue;
 		}
-		tok->tokWord.end = p;
-		/* increase space count used in format */
-		fss->scnSpaceCount++;
-		/* next token */
-		AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
-		continue;
-	    }
-word_tok:
-	    if (1) {
-		ClockScanToken	 *wordTok = tok;
-		if (tok > scnTok && (tok-1)->map == &ScnWordTokenMap) {
-		    wordTok = tok-1;
-		}
-		/* new word token */
-		if (wordTok == tok) {
+	      word_tok:
+		{
+		/* try continue with previous word token */
+		ClockScanToken *wordTok = tok - 1;
+
+		if (wordTok < scnTok || wordTok->map != &ScnWordTokenMap) {
+		    /* start with new word token */
+		    wordTok = tok;
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &ScnWordTokenMap;
+		}
+		
+		do {
+		    if (isspace(UCHAR(*p))) {
+			fss->scnSpaceCount++;
+		    }
+		    p = Tcl_UtfNext(p);
+		} while (p < e && *p != '%');
+		wordTok->tokWord.end = p;
+
+		if (wordTok == tok) {
 		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		}
-		if (isspace(UCHAR(*p))) {
-		    fss->scnSpaceCount++;
+
+
 		}
-		p = Tcl_UtfNext(p);
-		wordTok->tokWord.end = p;
-	    }
+
+
 	    break;
 	    }
 	}
@@ -2273,9 +2282,8 @@ word_tok:
 	fss->scnTok = scnTok;
 	fss->scnTokC = tokCnt;
     }
-done:
-    Tcl_MutexUnlock(&ClockFmtMutex);
 
+    Tcl_MutexUnlock(&ClockFmtMutex);
     return fss;
 }
 
@@ -3241,20 +3249,29 @@ ClockGetOrParseFmtFormat(
 	    }
 	    break;
 	    default:
-word_tok:
-	    if (1) {
-		ClockFormatToken *wordTok = tok;
-		if (tok > fmtTok && (tok-1)->map == &FmtWordTokenMap) {
-		    wordTok = tok-1;
-		}
-		if (wordTok == tok) {
+	      word_tok:
+		{
+		/* try continue with previous word token */
+		ClockFormatToken *wordTok = tok - 1;
+
+		if (wordTok < fmtTok || wordTok->map != &FmtWordTokenMap) {
+		    /* start with new word token */
+		    wordTok = tok;
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &FmtWordTokenMap;
+		}
+		do {
+		    p = Tcl_UtfNext(p);
+		} while (p < e && *p != '%');
+		wordTok->tokWord.end = p;
+
+		if (wordTok == tok) {
 		    AllocTokenInChain(tok, fmtTok, fss->fmtTokC); tokCnt++;
 		}
-		p = Tcl_UtfNext(p);
-		wordTok->tokWord.end = p;
-	    }
+
+
+
+		}
 	    break;
 	    }
 	}
@@ -3271,9 +3288,8 @@ word_tok:
 	fss->fmtTok = fmtTok;
 	fss->fmtTokC = tokCnt;
     }
-done:
-    Tcl_MutexUnlock(&ClockFmtMutex);
 
+    Tcl_MutexUnlock(&ClockFmtMutex);
     return fss;
 }
 
