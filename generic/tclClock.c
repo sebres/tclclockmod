@@ -3432,28 +3432,26 @@ ClockParseFmtScnArgs(
     /* Base (by scan or add) or clock value (by format) */
 
     if (opts->baseObj != NULL) {
-	register Tcl_Obj *baseObj = opts->baseObj;
-	/* bypass integer recognition if looks like option "-now" */
-	if (
-	    (baseObj->length == 4 && baseObj->bytes && *(baseObj->bytes+1) == 'n') ||
-	    TclGetWideIntFromObj(NULL, baseObj, &baseVal) != TCL_OK
-	) {
+	Tcl_Obj *baseObj = opts->baseObj;
 
-	    /* we accept "-now" as current date-time */
+	/* bypass integer recognition if looks like "now" or "-now" */
+	if ((baseObj->bytes && 
+		((baseObj->length == 3 && baseObj->bytes[0] == 'n') ||
+		 (baseObj->length == 4 && baseObj->bytes[1] == 'n')))
+		|| TclGetWideIntFromObj(NULL, baseObj, &baseVal) != TCL_OK) {
+	    /* we accept "now" and "-now" as current date-time */
 	    static const char *const nowOpts[] = {
-		"-now", NULL
+		"now", "-now", NULL
 	    };
 	    int idx;
-	    if (Tcl_GetIndexFromObj(NULL, baseObj, nowOpts, "seconds or -now",
-		    TCL_EXACT, &idx) == TCL_OK
-	    ) {
+	    if (Tcl_GetIndexFromObj(NULL, baseObj, nowOpts, "seconds",
+		    TCL_EXACT, &idx) == TCL_OK) {
 		goto baseNow;
 	    }
 
 	    Tcl_SetObjResult(interp, Tcl_ObjPrintf(
-		    "expected integer but got \"%s\"",
-		    Tcl_GetString(baseObj)));
-	    Tcl_SetErrorCode(interp, "TCL", "VALUE", "INTEGER", NULL);
+		"bad seconds \"%s\": must be now or integer",
+		TclGetString(baseObj)));
 	    i = 1;
 	    goto badOption;
 	}
@@ -3550,9 +3548,8 @@ ClockFormatObjCmd(
     int objc,			/* Parameter count */
     Tcl_Obj *const objv[])	/* Parameter values */
 {
-    ClockClientData *dataPtr = clientData;
-
-    static const char *syntax = "clock format clockval|-now "
+    ClockClientData *dataPtr = (ClockClientData *)clientData;
+    static const char *syntax = "clock format clockval|now "
 	"?-format string? "
 	"?-gmt boolean? "
 	"?-locale LOCALE? ?-timezone ZONE?";
@@ -4398,7 +4395,7 @@ ClockAddObjCmd(
     int objc,			/* Parameter count */
     Tcl_Obj *const objv[])	/* Parameter values */
 {
-    static const char *syntax = "clock add clockval|-now ?number units?..."
+    static const char *syntax = "clock add clockval|now ?number units?..."
 	"?-gmt boolean? "
 	"?-locale LOCALE? ?-timezone ZONE?";
     ClockClientData *dataPtr = clientData;

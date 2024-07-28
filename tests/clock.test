@@ -284,7 +284,7 @@ test clock-0.1 "initial: auto-loading of ensemble and stubs on demand" no_tclclo
 	clock seconds; # init ensemble (but not yet stubs, loading of clock.tcl retarded)
 	lappend ret ens:[namespace ensemble exists ::clock]
 	lappend ret stubs:[expr {[namespace which -command ::tcl::clock::GetSystemTimeZone] ne ""}]
-	clock format -now; # clock.tcl stubs expected
+	clock format now; # clock.tcl stubs expected
 	lappend ret stubs:[expr {[namespace which -command ::tcl::clock::GetSystemTimeZone] ne ""}]
     }]
     interp delete $i
@@ -300,14 +300,14 @@ test clock-0.2 "initial: loading of format/locale does not overwrite interp stat
     if {[catch {
 	return -level 0 -code error -errorcode {EXPERR TEST-ERROR} -errorinfo "ERROR expected error" test
     }]} {
-	clock format -now -locale de; # should not overwrite error code/info
+	clock format now -locale de; # should not overwrite error code/info
 	list $::errorCode $::errorInfo
     }
 } -result {{EXPERR TEST-ERROR} {ERROR expected error}}
 
 # Test some of the basics of [clock format]
 
-set syntax "clock format clockval|-now ?-format string? ?-gmt boolean? ?-locale LOCALE? ?-timezone ZONE?"
+set syntax "clock format clockval|now ?-format string? ?-gmt boolean? ?-locale LOCALE? ?-timezone ZONE?"
 test clock-1.0 "clock format - wrong # args" {
     list [catch {clock format} msg] $msg $::errorCode
 } [subst {1 {wrong # args: should be "$syntax"} {CLOCK wrongNumArgs}}]
@@ -318,7 +318,7 @@ test clock-1.0.1 "clock format - wrong # args (compiled ensemble with invalid sy
 
 test clock-1.1 "clock format - bad time" {
     list [catch {clock format foo} msg] $msg
-} {1 {expected integer but got "foo"}}
+} {1 {bad seconds "foo": must be now or integer}}
 
 test clock-1.2 "clock format - bad gmt val" {
     list [catch {clock format 0 -gmt foo} msg] $msg
@@ -353,10 +353,10 @@ test clock-1.7.1 "clock format - command abbreviations (compat regression test)"
     clock f 0 -g 1 -f "%Y-%m-%d"
 } 1970-01-01
 
-test clock-1.8 "clock format -now" {
+test clock-1.8 "clock format now" {
     # give one second more for test (if on boundary of the current second):
     set n [clock format [clock seconds] -g 1 -f "%s"]
-    expr {[clock format -now -g 1 -f "%s"] in [list $n [incr n]]}
+    expr {[clock format now -g 1 -f "%s"] in [list $n [incr n]]}
 } 1
 
 test clock-1.9 "clock arguments: option doubly present" {
