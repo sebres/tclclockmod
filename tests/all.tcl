@@ -30,12 +30,12 @@ proc ::tcltest::__ReportSummary {} {
   }
   puts [outputChannel] ""
 }
-proc ::tcltest::__ReportToMaster {total passed skipped failed skippedLst args} {
+proc ::tcltest::__ReportToParent {total passed skipped failed skippedLst args} {
   array set ::TestSummary [list \
     Total $total Passed $passed Skipped $skipped Failed $failed skippedBecauseLst $skippedLst args $args]
   incr ::TestSummary(TotFailed) $failed
   ::tcltest::__ReportSummary
-  ::tcltest::ReportedFromSlave $total $passed $skipped $failed $skippedLst {*}$args
+  ::tcltest::ReportedFromChild $total $passed $skipped $failed $skippedLst {*}$args
 }
 proc ::tcltest::__SortFiles {lst} {
   set slst {}
@@ -76,7 +76,7 @@ foreach testfile [::tcltest::__SortFiles [::tcltest::GetMatchingFiles $TESTDIR]]
   set slave [interp create]
   interp eval $slave [package ifneeded tcltest $tcltest::Version]
   $slave eval {namespace import tcltest::*}
-  interp alias $slave ::tcltest::ReportToMaster {} ::tcltest::__ReportToMaster
+  interp alias $slave ::tcltest::ReportToParent {} ::tcltest::__ReportToParent
   $slave eval [list set TESTFILE [file join $TESTDIR $testfile]]
   $slave eval [list set BUILDDIR $BUILDDIR]
   $slave eval [list ::tcltest::configure {*}$TEST_OPTIONS]
