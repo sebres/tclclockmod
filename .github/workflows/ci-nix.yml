@@ -57,7 +57,7 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           test -f configure && echo "configure already exists in $(pwd) ..." || autoreconf -f
-          mkdir ./unix/build-${{ matrix.compiler }}; cd $_
+          mkdir ./unix/build-${{ matrix.compiler }}; cd "$_"
           ../../configure --with-tcl=/usr/lib/tcl8.6
 
       - name: Build ${{ matrix.compiler }}
