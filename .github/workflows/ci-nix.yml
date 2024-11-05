@@ -57,15 +57,15 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           test -f configure && echo "configure already exists in $(pwd) ..." || autoreconf -f
-          mkdir ./unix/build-${{ matrix.compiler }}
+          mkdir ./unix/build-${{ matrix.compiler }}; cd $_
+          ../../configure --with-tcl=/usr/lib/tcl8.6
 
       - name: Build ${{ matrix.compiler }}
         working-directory: ./unix/build-${{ matrix.compiler }}
         env:
           CC: ${{ matrix.compiler }}
         run: |
-          ../../configure --with-tcl=/usr/lib/tcl8.6
-          make
+          make -j4
 
       - name: Test ${{ matrix.compiler }}
         working-directory: ./unix/build-${{ matrix.compiler }}
