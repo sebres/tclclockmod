@@ -280,6 +280,14 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 	$(RANLIB_STUB) $(PKG_STUB_LIB_FILE)
 
 #========================================================================
+
+gendate:
+	bison --output-file=$(srcdir)/generic/tclDate.c \
+	--name-prefix=TclDate \
+	--no-lines \
+	$(srcdir)/generic/tclGetDate.y
+
+#========================================================================
 # We need to enumerate the list of .c to .o lines here.
 #
 # In the following lines, $(srcdir) refers to the toplevel directory

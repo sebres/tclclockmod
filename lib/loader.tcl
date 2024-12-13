@@ -3,21 +3,24 @@ set ::tcl::clock::LibDir [file dirname [info script]]
 
 # rewrite clock ensemble:
 proc ::clock args {
+  if {$::tcl_platform(platform) ne {windows}} {
+    set lib "unix"
+    set name "lib"
+  } else {
+    set lib "win"
+    set name ""
+  }
+  append name tclclockmod * [info sharedlibextension]
   # first try from lib directory (like installed):
-  set lib [glob -nocomplain [file join $::tcl::clock::LibDir tclclockmod*[info sharedlibextension]]]
+  set lib [glob -nocomplain [file join $::tcl::clock::LibDir $name]]
   # second try find library from current directory (debug, release, platform etc.),
   # hereafter in path relative current lib (like uninstalled):
   if {![llength $lib]} {
-    foreach plib [list [pwd] [file dirname $::tcl::clock::LibDir]] {
+    foreach plib [list \
+      [if {[info exists ::BUILDDIR]} {set ::BUILDDIR} else pwd] \
+      [file dirname $::tcl::clock::LibDir] \
+    ] {
       # now from unix, win, Release:
-      if {$::tcl_platform(platform) ne {windows}} {
-        set lib "unix"
-        set name "lib"
-      } else {
-        set lib "win"
-        set name ""
-      }
-      append name tclclockmod * [info sharedlibextension]
       foreach lib [list {} Release* $lib [file join $lib Release*]] {
         #puts "**** try $plib / $lib -- [file join $plib $lib $name]"
         set lib [glob -nocomplain [file join $plib $lib $name]]

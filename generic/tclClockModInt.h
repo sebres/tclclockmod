@@ -21,6 +21,14 @@
 #   define inline   __inline
 #endif
 
+/*
+ * several tclInt.h internals (tcl8.6 version depending):
+ */
+
+#ifndef TclUtfNext
+#define TclUtfNext(src)	\
+	( (((unsigned char) *(src)) < 0xC0) ? src + 1 : Tcl_UtfNext(src) )
+#endif
 
 /*
  * Signal using modified tcl version (dict smartref's, etc.)

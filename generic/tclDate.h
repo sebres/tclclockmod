@@ -76,6 +76,7 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_LOCALSEC	       (1 << 2)
 #define CLF_JULIANDAY	       (1 << 3)
 #define CLF_TIME	       (1 << 4)
+#define CLF_ZONE	       (1 << 5)
 #define CLF_CENTURY	       (1 << 6)
 #define CLF_DAYOFMONTH	       (1 << 7)
 #define CLF_DAYOFYEAR	       (1 << 8)
@@ -85,12 +86,19 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_ISO8601YEAR	       (1 << 12)
 #define CLF_ISO8601WEAK	       (1 << 13)
 #define CLF_ISO8601CENTURY     (1 << 14)
+
 #define CLF_SIGNED	       (1 << 15)
+
+/* extra flags used outside of scan/format-tokens too (int, not a short int) */
+#define CLF_RELCONV	       (1 << 17)
+#define CLF_ORDINALMONTH       (1 << 18)
+
 /* On demand (lazy) assemble flags */
 #define CLF_ASSEMBLE_DATE      (1 << 28) /* assemble year, month, etc. using julianDay */
 #define CLF_ASSEMBLE_JULIANDAY (1 << 29) /* assemble julianDay using year, month, etc. */
 #define CLF_ASSEMBLE_SECONDS   (1 << 30) /* assemble localSeconds (and seconds at end) */
 
+#define CLF_HAVEDATE	       (CLF_DAYOFMONTH|CLF_MONTH|CLF_YEAR)
 #define CLF_DATE	       (CLF_JULIANDAY | CLF_DAYOFMONTH | CLF_DAYOFYEAR | \
 				CLF_MONTH | CLF_YEAR | CLF_ISO8601YEAR | \
 				CLF_DAYOFWEEK | CLF_ISO8601WEAK)
@@ -181,6 +189,8 @@ typedef enum ClockMsgCtLiteral {
  * Structure containing the fields used in [clock format] and [clock scan]
  */
 
+#define CLF_CTZ		(1 << 4)
+
 typedef struct TclDateFields {
 
     /* Cacheable fields:	 */
@@ -203,8 +213,10 @@ typedef struct TclDateFields {
     int dayOfWeek;		/* Day of the week */
     int hour;			/* Hours of day (in-between time only calculation) */
     int minutes;		/* Minutes of hour (in-between time only calculation) */
-    int secondOfMin;		/* Seconds of minute (in-between time only calculation) */
-    int secondOfDay;		/* Seconds of day (in-between time only calculation) */
+    Tcl_WideInt secondOfMin;	/* Seconds of minute (in-between time only calculation) */
+    Tcl_WideInt secondOfDay;	/* Seconds of day (in-between time only calculation) */
+
+    int flags;			/* 0 or CLF_CTZ */
 
     /* Non cacheable fields:	 */
 
@@ -226,30 +238,24 @@ typedef struct DateInfo {
 
     TclDateFields date;
 
-    int		flags;
-
-    int dateHaveDate;
+    int		flags;		/* Signals parts of date/time get found */
+    int		errFlags;	/* Signals error (part of date/time found twice) */
 
     int dateMeridian;
-    int dateHaveTime;
 
     int dateTimezone;
     int dateDSTmode;
-    int dateHaveZone;
 
-    int dateRelMonth;
-    int dateRelDay;
-    int dateRelSeconds;
-    int dateHaveRel;
+    Tcl_WideInt dateRelMonth;
+    Tcl_WideInt dateRelDay;
+    Tcl_WideInt dateRelSeconds;
 
     int dateMonthOrdinalIncr;
     int dateMonthOrdinal;
-    int dateHaveOrdinalMonth;
 
     int dateDayOrdinal;
-    int dateHaveDay;
 
-    int *dateRelPointer;
+    Tcl_WideInt *dateRelPointer;
 
     int dateSpaceCount;
     int dateDigitCount;
@@ -276,12 +282,6 @@ typedef struct DateInfo {
 #define yyDayOfWeek (info->date.dayOfWeek)
 #define yyMonthOrdinalIncr  (info->dateMonthOrdinalIncr)
 #define yyMonthOrdinal	(info->dateMonthOrdinal)
-#define yyHaveDate  (info->dateHaveDate)
-#define yyHaveDay   (info->dateHaveDay)
-#define yyHaveOrdinalMonth (info->dateHaveOrdinalMonth)
-#define yyHaveRel   (info->dateHaveRel)
-#define yyHaveTime  (info->dateHaveTime)
-#define yyHaveZone  (info->dateHaveZone)
 #define yyTimezone  (info->dateTimezone)
 #define yyMeridian  (info->dateMeridian)
 #define yyRelMonth  (info->dateRelMonth)
@@ -301,7 +301,9 @@ ClockInitDateInfo(DateInfo *info) {
  * Structure containing the command arguments supplied to [clock format] and [clock scan]
  */
 
-#define CLF_VALIDATE	(1 << 2)
+#define CLF_VALIDATE_S1	(1 << 0)
+#define CLF_VALIDATE_S2	(1 << 1)
+#define CLF_VALIDATE	(CLF_VALIDATE_S1|CLF_VALIDATE_S2)
 #define CLF_EXTENDED	(1 << 4)
 #define CLF_STRICT	(1 << 8)
 #define CLF_LOCALE_USED (1 << 15)
@@ -351,6 +353,7 @@ typedef struct ClockClientData {
     int yearOfCenturySwitch;
     int validMinYear;
     int validMaxYear;
+    double maxJDN;
 
     Tcl_Obj *systemTimeZone;
     Tcl_Obj *systemSetupTZData;
@@ -516,6 +519,31 @@ struct ClockFmtScnStorage {
 #endif
 };
 
+/* 
+ * Clock macros.
+ */
+
+/* 
+ * Extracts Julian day and seconds of the day from posix seconds (tm).
+ */
+#define ClockExtractJDAndSODFromSeconds(jd, sod, tm) \
+    if (1) { \
+	jd = (tm + JULIAN_SEC_POSIX_EPOCH); \
+	if (jd >= SECONDS_PER_DAY || jd <= -SECONDS_PER_DAY) { \
+	    jd /= SECONDS_PER_DAY; \
+	    sod = (int)(tm % SECONDS_PER_DAY); \
+	} else { \
+	    sod = (int)jd, jd = 0; \
+	} \
+	if (sod < 0) { \
+	    sod += SECONDS_PER_DAY; \
+	    /* JD is affected, if switched into negative (avoid 24 hours difference) */ \
+	    if (jd <= 0) { \
+		jd--; \
+	    } \
+	} \
+    }
+
 /*
  * Prototypes of module functions.
  */
@@ -557,6 +585,12 @@ MODULE_SCOPE int    ClockMCSetIdx(ClockFmtScnCmdArgs *opts, int mcKey,
 
 /* tclClockFmt.c module declarations */
 
+
+MODULE_SCOPE char *
+	TclItoAw(char *buf, int val, char padchar, unsigned short int width);
+MODULE_SCOPE int
+	TclAtoWIe(Tcl_WideInt *out, const char *p, const char *e, int sign);
+
 MODULE_SCOPE Tcl_Obj*
 		    ClockFrmObjGetLocFmtKey(Tcl_Interp *interp,
 			Tcl_Obj *objPtr);
@@ -574,5 +608,6 @@ MODULE_SCOPE int    ClockFormat(register DateFormat *dateFmt,
 			ClockFmtScnCmdArgs *opts);
 
 MODULE_SCOPE void   ClockFrmScnClearCaches(void);
+MODULE_SCOPE void   ClockFrmScnFinalize();
 
 #endif /* _TCLCLOCK_H */

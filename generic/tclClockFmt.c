@@ -32,7 +32,9 @@ TCL_DECLARE_MUTEX(ClockFmtMutex); /* Serializes access to common format list. */
 
 static void ClockFmtScnStorageDelete(ClockFmtScnStorage *fss);
 
-static void ClockFrmScnFinalize(ClientData clientData);
+#ifndef TCL_CLOCK_FULL_COMPAT
+#define TCL_CLOCK_FULL_COMPAT 1
+#endif
 
 /*
  * Clock scan and format facilities.
@@ -56,6 +58,47 @@ static void ClockFrmScnFinalize(ClientData clientData);
  *----------------------------------------------------------------------
  */
 
+static inline void
+_str2int_no(
+    int	       *out,
+    register
+    const char *p,
+    const char *e,
+    int sign)
+{
+    /* assert(e <= p+10); */
+    register int val = 0;
+    /* overflow impossible for 10 digits ("9..9"), so no needs to check at all */
+    while (p < e) {			/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
+    if (sign < 0) { val = -val; }
+    *out = val;
+}
+
+static inline void
+_str2wideInt_no(
+    Tcl_WideInt *out,
+    register
+    const char	*p,
+    const char	*e,
+    int sign)
+{
+    /* assert(e <= p+18); */
+    register Tcl_WideInt val = 0;
+    /* overflow impossible for 18 digits ("9..9"), so no needs to check at all */
+    while (p < e) {			/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
+    if (sign < 0) { val = -val; }
+    *out = val;
+}
+
+/* int & Tcl_WideInt overflows may happens here (expected case) */
+#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
+# pragma GCC optimize("no-trapv")
+#endif
+
 static inline int
 _str2int(
     int	       *out,
@@ -64,22 +107,31 @@ _str2int(
     const char *e,
     int sign)
 {
-    register int val = 0, prev = 0;
+    register int val = 0;
+    /* overflow impossible for 10 digits ("9..9"), so no needs to check before */
+    const char *eNO = p+10;
+    if (eNO > e) {
+	eNO = e;
+    }
+    while (p < eNO) {				/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
     if (sign >= 0) {
-	while (p < e) {
+	while (p < e) {				/* check for overflow */
+	    int prev = val;
 	    val = val * 10 + (*p++ - '0');
-	    if (val < prev) {
+	    if (val / 10 < prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     } else {
-	while (p < e) {
+	val = -val;
+	while (p < e) {				/* check for overflow */
+	    int prev = val;
 	    val = val * 10 - (*p++ - '0');
-	    if (val > prev) {
+	    if (val / 10 > prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     }
     *out = val;
@@ -94,27 +146,50 @@ _str2wideInt(
     const char	*e,
     int sign)
 {
-    register Tcl_WideInt val = 0, prev = 0;
+    register Tcl_WideInt val = 0;
+    /* overflow impossible for 18 digits ("9..9"), so no needs to check before */
+    const char *eNO = p+18;
+    if (eNO > e) {
+	eNO = e;
+    }
+    while (p < eNO) {				/* never overflows */
+	val = val * 10 + (*p++ - '0');
+    }
     if (sign >= 0) {
-	while (p < e) {
+	while (p < e) {				/* check for overflow */
+	    Tcl_WideInt prev = val;
 	    val = val * 10 + (*p++ - '0');
-	    if (val < prev) {
+	    if (val / 10 < prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     } else {
-	while (p < e) {
+	val = -val;
+	while (p < e) {				/* check for overflow */
+	    Tcl_WideInt prev = val;
 	    val = val * 10 - (*p++ - '0');
-	    if (val > prev) {
+	    if (val / 10 > prev) {
 		return TCL_ERROR;
 	    }
-	    prev = val;
 	}
     }
     *out = val;
     return TCL_OK;
 }
+
+int
+TclAtoWIe(
+    Tcl_WideInt *out,
+    const char	*p,
+    const char	*e,
+    int sign)
+{
+    return _str2wideInt(out, p, e, sign);
+}
+
+#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
+# pragma GCC reset_options
+#endif
 
 /*
  *----------------------------------------------------------------------
@@ -199,6 +274,15 @@ _itoaw(
 
     return buf + width;
 }
+char *
+TclItoAw(
+    char *buf,
+    int val,
+    char  padchar,
+    unsigned short int width)
+{
+    return _itoaw(buf, val, padchar, width);
+}
 
 static inline char *
 _witoaw(
@@ -247,7 +331,7 @@ _witoaw(
     if (!width) width++;
     /* check resp. recalculate width (regarding sign) */
     width--;
-    if (val <= 10000000000L) {
+    if (val <= -10000000000L) {
 	Tcl_WideInt val2;
 	val2 = val / 10000000000L;
 	while (width <= 9 && val2 <= -wrange[width]) {
@@ -560,7 +644,7 @@ ClockFmtObj_FreeInternalRep(objPtr)
     Tcl_Obj *objPtr;
 {
     ClockFmtScnStorage *fss = ObjClockFmtScn(objPtr);
-    if (fss != NULL) {
+    if (fss != NULL && initialized) {
 	Tcl_MutexLock(&ClockFmtMutex);
 	/* decrement object reference count of format/scan storage */
 	if (--fss->objRefCount <= 0) {
@@ -714,7 +798,6 @@ FindOrCreateFmtScnStorage(
 	    &ClockFmtScnStorageHashKeyType);
 
 	initialized = 1;
-	Tcl_CreateExitHandler(ClockFrmScnFinalize, NULL);
     }
 
     /* get or create entry (and alocate storage) */
@@ -844,14 +927,21 @@ ClockLocalizeFormat(
 	callargs[0] = dataPtr->literals[LIT_LOCALIZE_FORMAT];
 	callargs[1] = opts->localeObj;
 	callargs[2] = opts->formatObj;
-	callargs[3] = keyObj;
-	if (Tcl_EvalObjv(opts->interp, 4, callargs, 0) != TCL_OK
+	callargs[3] = opts->mcDictObj;
+	if (Tcl_EvalObjv(opts->interp, 4, callargs, 0) == TCL_OK
 	) {
-	    goto done;
+	    valObj = Tcl_GetObjResult(opts->interp);
 	}
 
-	valObj = Tcl_GetObjResult(opts->interp);
-
+	/* ensure mcDictObj remains unshared */
+	if (opts->mcDictObj->refCount > 1) {
+	    /* smart reference (shared dict as object with no ref-counter) */
+	    opts->mcDictObj = Tcl_DictObjSmartRef(opts->interp,
+		opts->mcDictObj);
+	}
+	if (!valObj) {
+	    goto done;
+	}
 	/* cache it inside mc-dictionary (this incr. ref count of keyObj/valObj) */
 	if (Tcl_DictObjPut(opts->interp, opts->mcDictObj,
 		keyObj, valObj) != TCL_OK
@@ -898,7 +988,8 @@ static const char *
 FindTokenBegin(
     register const char *p,
     register const char *end,
-    ClockScanToken *tok)
+    ClockScanToken *tok,
+    int flags)
 {
     char c;
     if (p < end) {
@@ -906,25 +997,33 @@ FindTokenBegin(
 	switch (tok->map->type) {
 	case CTOKT_INT:
 	case CTOKT_WIDE:
-	    /* should match at least one digit */
-	    while (!isdigit(UCHAR(*p)) && (p = TclUtfNext(p)) < end) {};
+	    if (!(flags & CLF_STRICT)) {
+		/* should match at least one digit or space */
+		while (!isdigit(UCHAR(*p)) && !isspace(UCHAR(*p)) &&
+			(p = Tcl_UtfNext(p)) < end) {}
+	    } else {
+		/* should match at least one digit */
+		while (!isdigit(UCHAR(*p)) && (p = Tcl_UtfNext(p)) < end) {}
+	    }
 	    return p;
-	break;
 	case CTOKT_WORD:
 	    c = *(tok->tokWord.start);
-	    /* should match at least to the first char of this word */
-	    while (*p != c && (p = TclUtfNext(p)) < end) {};
-	    return p;
-	break;
+	    goto findChar;
 	case CTOKT_SPACE:
-	    while (!isspace(UCHAR(*p)) && (p = TclUtfNext(p)) < end) {};
+	    while (!isspace(UCHAR(*p)) && (p = Tcl_UtfNext(p)) < end) {};
 	    return p;
-	break;
 	case CTOKT_CHAR:
 	    c = *((char *)tok->map->data);
-	    while (*p != c && (p = TclUtfNext(p)) < end) {};
+findChar:
+	    if (!(flags & CLF_STRICT)) {
+		/* should match the char or space */
+		while (*p != c && !isspace(UCHAR(*p)) &&
+			(p = Tcl_UtfNext(p)) < end) {}
+	    } else {
+		/* should match the char */
+		while (*p != c && (p = Tcl_UtfNext(p)) < end) {}
+	    }
 	    return p;
-	break;
 	}
     }
     return p;
@@ -947,9 +1046,12 @@ FindTokenBegin(
  */
 
 static void
-DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
-    DateInfo *info, ClockScanToken *tok,
-    int *minLenPtr, int *maxLenPtr)
+DetermineGreedySearchLen(
+    ClockFmtScnCmdArgs *opts,
+    DateInfo *info,
+    ClockScanToken *tok,
+    int *minLenPtr,
+    int *maxLenPtr)
 {
     register int minLen = tok->map->minSize;
     register int maxLen;
@@ -960,7 +1062,8 @@ DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
     if ((tok+1)->map) {
 	end -= tok->endDistance + yySpaceCount;
 	/* find position of next known token */
-	p = FindTokenBegin(p, end, tok+1);
+	p = FindTokenBegin(p, end, tok+1,
+		TCL_CLOCK_FULL_COMPAT ? opts->flags : CLF_STRICT);
 	if (p < end) {
 	    minLen = p - yyInput;
 	}
@@ -1003,10 +1106,10 @@ DetermineGreedySearchLen(ClockFmtScnCmdArgs *opts,
 	}
 	p += tok->lookAhMin;
 	if (laTok->map && p < end) {
-	    const char *f;
 	    /* try to find laTok between [lookAhMin, lookAhMax] */
 	    while (minLen < maxLen) {
-		f = FindTokenBegin(p, end, laTok);
+		const char *f = FindTokenBegin(p, end, laTok,
+				    TCL_CLOCK_FULL_COMPAT ? opts->flags : CLF_STRICT);
 		/* if found (not below lookAhMax) */
 		if (f < end) {
 		    break;
@@ -1584,6 +1687,72 @@ ClockScnToken_LocaleListMatcher_Proc(ClockFmtScnCmdArgs *opts,
 }
 
 static int
+ClockScnToken_JDN_Proc(ClockFmtScnCmdArgs *opts,
+    DateInfo *info, ClockScanToken *tok)
+{
+    int minLen, maxLen;
+    register const char *p = yyInput, *end; const char *s;
+    Tcl_WideInt intJD; int fractJD = 0, fractJDDiv = 1;
+
+    DetermineGreedySearchLen(opts, info, tok, &minLen, &maxLen);
+
+    end = yyInput + maxLen;
+
+    /* currently positive astronomic dates only */
+    if (*p == '+' || *p == '-') { p++; };
+    s = p;
+    while (p < end && isdigit(UCHAR(*p))) {
+	p++;
+    }
+    if ( _str2wideInt(&intJD, s, p, (*yyInput != '-' ? 1 : -1)) != TCL_OK) {
+	return TCL_RETURN;
+    };
+    yyInput = p;
+    if (p >= end || *p++ != '.') { /* allow pure integer JDN */
+	/* by astronomical JD the seconds of day offs is 12 hours */
+	if (tok->map->offs) {
+	    goto done;
+	}
+	/* calendar JD */
+	yydate.julianDay = intJD;
+	return TCL_OK;
+    }
+    s = p;
+    while (p < end && isdigit(UCHAR(*p))) {
+    	fractJDDiv *= 10;
+	p++;
+    }
+    if ( _str2int(&fractJD, s, p, 1) != TCL_OK) {
+	return TCL_RETURN;
+    };
+    yyInput = p;
+
+done:
+    /* 
+     * Build a date from julian day (integer and fraction).
+     * Note, astronomical JDN starts at noon in opposite to calendar julianday.
+     */
+
+    fractJD = (int)tok->map->offs /* 0 for calendar or 43200 for astro JD */
+	+ (int)((Tcl_WideInt)SECONDS_PER_DAY * fractJD / fractJDDiv);
+    if (fractJD >= SECONDS_PER_DAY) {
+	fractJD %= SECONDS_PER_DAY;
+	intJD += 1;
+    }
+    yydate.secondOfDay = fractJD;
+    yydate.julianDay = intJD;
+
+    yydate.seconds =
+	-210866803200L
+	+ ( SECONDS_PER_DAY * intJD )
+	+ ( fractJD );
+
+    info->flags |= CLF_POSIXSEC;
+
+    return TCL_OK;
+}
+
+static int
 ClockScnToken_TimeZone_Proc(ClockFmtScnCmdArgs *opts,
     DateInfo *info, ClockScanToken *tok)
 {
@@ -1752,7 +1921,7 @@ static ClockScanTokenMap ScnSTokenMap[] = {
 	NULL},
     /* %b %B %h */
     {CTOKT_PARSER, CLF_MONTH, 0, 0, 0xffff, 0,
-	    ClockScnToken_Month_Proc},
+	    ClockScnToken_Month_Proc, NULL},
     /* %y */
     {CTOKT_INT, CLF_YEAR, 0, 1, 2, TclOffset(DateInfo, date.year),
 	NULL},
@@ -1772,7 +1941,7 @@ static ClockScanTokenMap ScnSTokenMap[] = {
     {CTOKT_PARSER, 0, 0, 0, 0xffff, 0,
 	ClockScnToken_amPmInd_Proc, NULL},
     /* %J */
-    {CTOKT_WIDE, CLF_JULIANDAY, 0, 1, 0xffff, TclOffset(DateInfo, date.julianDay),
+    {CTOKT_WIDE, CLF_JULIANDAY | CLF_SIGNED, 0, 1, 0xffff, TclOffset(DateInfo, date.julianDay),
 	NULL},
     /* %j */
     {CTOKT_INT, CLF_DAYOFYEAR, 0, 1, 3, TclOffset(DateInfo, date.dayOfYear),
@@ -1815,11 +1984,17 @@ static const char *ScnSTokenMapAliasIndex[2] = {
 };
 
 static const char *ScnETokenMapIndex =
-    "Eys";
+    "EJjys";
 static ClockScanTokenMap ScnETokenMap[] = {
     /* %EE */
     {CTOKT_PARSER, 0, 0, 0, 0xffff, TclOffset(DateInfo, date.year),
 	ClockScnToken_LocaleERA_Proc, (void *)MCLIT_LOCALE_NUMERALS},
+    /* %EJ */
+    {CTOKT_PARSER, CLF_JULIANDAY | CLF_SIGNED, 0, 1, 0xffff, 0, /* calendar JDN starts at midnight */
+	ClockScnToken_JDN_Proc, NULL},
+    /* %Ej */
+    {CTOKT_PARSER, CLF_JULIANDAY | CLF_SIGNED, 0, 1, 0xffff, (SECONDS_PER_DAY/2), /* astro JDN starts at noon */
+	ClockScnToken_JDN_Proc, NULL},
     /* %Ey */
     {CTOKT_PARSER, 0, 0, 0, 0xffff, 0, /* currently no capture, parse only token */
 	ClockScnToken_LocaleListMatcher_Proc, (void *)MCLIT_LOCALE_NUMERALS},
@@ -1900,14 +2075,13 @@ EstimateTokenCount(
     return ++tokcnt;
 }
 
-#define AllocTokenInChain(tok, chain, tokCnt) \
-    if (++(tok) >= (chain) + (tokCnt)) { \
-	chain = ckrealloc((char *)(chain), \
+#define AllocTokenInChain(tok, chain, tokCnt)				 \
+    if (++(tok) >= (chain) + (tokCnt)) {				 \
+	chain = ckrealloc((char *)(chain),				 \
 	    (tokCnt + CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE) * sizeof(*(tok))); \
-	if ((chain) == NULL) { goto done; }; \
-	(tok) = (chain) + (tokCnt); \
-	(tokCnt) += CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE; \
-    } \
+	(tok) = (chain) + (tokCnt);					 \
+	(tokCnt) += CLOCK_MIN_TOK_CHAIN_BLOCK_SIZE;			 \
+    }									 \
     memset(tok, 0, sizeof(*(tok)));
 
 /*
@@ -2035,37 +2209,47 @@ ClockGetOrParseScanFormat(
 	    }
 	    break;
 	    default:
-	    if ( *p == ' ' || isspace(UCHAR(*p)) ) {
-		tok->map = &ScnSpaceTokenMap;
-		tok->tokWord.start = p++;
-		while (p < e && isspace(UCHAR(*p))) {
-		    p++;
+		if (isspace(UCHAR(*p))) {
+		    tok->map = &ScnSpaceTokenMap;
+		    tok->tokWord.start = p++;
+		    while (p < e && isspace(UCHAR(*p))) {
+			p++;
+		    }
+		    tok->tokWord.end = p;
+		    /* increase space count used in format */
+		    fss->scnSpaceCount++;
+		    /* next token */
+		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
+		    continue;
 		}
-		tok->tokWord.end = p;
-		/* increase space count used in format */
-		fss->scnSpaceCount++;
-		/* next token */
-		AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
-		continue;
-	    }
-word_tok:
-	    if (1) {
-		ClockScanToken	 *wordTok = tok;
-		if (tok > scnTok && (tok-1)->map == &ScnWordTokenMap) {
-		    wordTok = tok-1;
-		}
-		/* new word token */
-		if (wordTok == tok) {
+	      word_tok:
+		{
+		/* try continue with previous word token */
+		ClockScanToken *wordTok = tok - 1;
+
+		if (wordTok < scnTok || wordTok->map != &ScnWordTokenMap) {
+		    /* start with new word token */
+		    wordTok = tok;
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &ScnWordTokenMap;
+		}
+		
+		do {
+		    if (isspace(UCHAR(*p))) {
+			fss->scnSpaceCount++;
+		    }
+		    p = Tcl_UtfNext(p);
+		} while (p < e && *p != '%');
+		wordTok->tokWord.end = p;
+
+		if (wordTok == tok) {
 		    AllocTokenInChain(tok, scnTok, fss->scnTokC); tokCnt++;
 		}
-		if (isspace(UCHAR(*p))) {
-		    fss->scnSpaceCount++;
+
+
 		}
-		p = TclUtfNext(p);
-		wordTok->tokWord.end = p;
-	    }
+
+
 	    break;
 	    }
 	}
@@ -2098,9 +2282,8 @@ word_tok:
 	fss->scnTok = scnTok;
 	fss->scnTokC = tokCnt;
     }
-done:
-    Tcl_MutexUnlock(&ClockFmtMutex);
 
+    Tcl_MutexUnlock(&ClockFmtMutex);
     return fss;
 }
 
@@ -2216,15 +2399,30 @@ ClockScan(
 	    if (map->offs) {
 		p = yyInput; x = p + size;
 		if (map->type == CTOKT_INT) {
-		    if (_str2int((int *)(((char *)info) + map->offs),
-			    p, x, sign) != TCL_OK) {
+		    if (size <= 10) {
+			_str2int_no((int *)(((char *)info) + map->offs),
+				p, x, sign);
+		    } else {
+			/* we don't have such large scan tokens at the moment */
 			goto overflow;
+			/* currently unused (maxSize of CTOKT_INT tokens <= 10) */
+			#if 0
+			if (_str2int((int *)(((char *)info) + map->offs),
+				p, x, sign) != TCL_OK) {
+			    goto overflow;
+			}
+			#endif
 		    }
 		    p = x;
 		} else {
-		    if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
-			    p, x, sign) != TCL_OK) {
-			goto overflow;
+		    if (size <= 18) {
+			_str2wideInt_no((Tcl_WideInt *)(((char *)info) + map->offs),
+				p, x, sign);
+		    } else {
+			if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
+				p, x, sign) != TCL_OK) {
+			    goto overflow;
+			}
 		    }
 		    p = x;
 		}
@@ -2324,6 +2522,7 @@ ClockScan(
     /*
      * Invalidate result
      */
+    flags |= info->flags;
 
     /* seconds token (%s) take precedence over all other tokens */
     if ((opts->flags & CLF_EXTENDED) || !(flags & CLF_POSIXSEC)) {
@@ -2592,6 +2791,67 @@ ClockFmtToken_WeekOfYear_Proc(
     return TCL_OK;
 }
 static int
+ClockFmtToken_JDN_Proc(
+    ClockFmtScnCmdArgs *opts,
+    DateFormat *dateFmt,
+    ClockFormatToken *tok,
+    int *val)
+ {
+    Tcl_WideInt intJD = dateFmt->date.julianDay;
+    int fractJD;
+
+    /* Convert to JDN parts (regarding start offset) and time fraction */
+    fractJD = dateFmt->date.secondOfDay 
+	- (int)tok->map->offs; /* 0 for calendar or 43200 for astro JD */
+    if (fractJD < 0) {
+    	intJD--;
+	fractJD += SECONDS_PER_DAY;
+    }
+    if (fractJD && intJD < 0) { /* avoid jump over 0, by negative JD's */
+	intJD++;
+	if (intJD == 0) {
+	    /* -0.0 / -0.9 has zero integer part, so append "-" extra */
+	    if (FrmResultAllocate(dateFmt, 1) != TCL_OK) { return TCL_ERROR; };
+	    *dateFmt->output++ = '-';
+	}
+	/* and inverse seconds of day, -0(75) -> -0.25 as float */
+	fractJD = SECONDS_PER_DAY - fractJD;
+    }
+
+    /* 21 is max width of (negative) wide-int (rather smaller, but anyway a time fraction below) */
+    if (FrmResultAllocate(dateFmt, 21) != TCL_OK) { return TCL_ERROR; };
+    dateFmt->output = _witoaw(dateFmt->output, intJD, '0', 1);
+    /* simplest cases .0 and .5 */
+    if (!fractJD || fractJD == (SECONDS_PER_DAY / 2)) {
+	/* point + 0 or 5 */
+	if (FrmResultAllocate(dateFmt, 1+1) != TCL_OK) { return TCL_ERROR; };
+	*dateFmt->output++ = '.';
+	*dateFmt->output++ = !fractJD ? '0' : '5';
+	*dateFmt->output = '\0';
+	return TCL_OK;
+    } else {
+	/* wrap the time fraction */
+	#define JDN_MAX_PRECISION 8
+	#define JDN_MAX_PRECBOUND 100000000 /* 10**JDN_MAX_PRECISION */
+	char *p;
+
+	/* to float (part after floating point, + 0.5 to round it up) */
+	fractJD = (int)(
+	    (double)fractJD * JDN_MAX_PRECBOUND / SECONDS_PER_DAY + 0.5
+	);
+	/* point + integer (as time fraction after floating point) */
+	if (FrmResultAllocate(dateFmt, 1+JDN_MAX_PRECISION) != TCL_OK) { return TCL_ERROR; };
+	*dateFmt->output++ = '.';
+	p = _itoaw(dateFmt->output, fractJD, '0', JDN_MAX_PRECISION);
+	/* remove trailing zero's */
+	dateFmt->output++;
+	while (p > dateFmt->output && *(p-1) == '0') {p--;}
+	*p = '\0';
+	dateFmt->output = p;
+    }
+    return TCL_OK;
+}
+static int
 ClockFmtToken_TimeZone_Proc(
     ClockFmtScnCmdArgs *opts,
     DateFormat *dateFmt,
@@ -2801,7 +3061,7 @@ static ClockFormatTokenMap FmtSTokenMap[] = {
     /* %V */
     {CTOKT_INT, "0", 2, 0, 0, 0, TclOffset(DateFormat, date.iso8601Week), NULL},
     /* %z %Z */
-    {CTOKT_INT, NULL, 0, 0, 0, 0, 0,
+    {CFMTT_PROC, NULL, 0, 0, 0, 0, 0,
 	ClockFmtToken_TimeZone_Proc, NULL},
     /* %g */
     {CTOKT_INT, "0", 2, 0, 0, 100, TclOffset(DateFormat, date.iso8601Year), NULL},
@@ -2810,7 +3070,7 @@ static ClockFormatTokenMap FmtSTokenMap[] = {
     /* %j */
     {CTOKT_INT, "0", 3, 0, 0, 0, TclOffset(DateFormat, date.dayOfYear), NULL},
     /* %J */
-    {CTOKT_WIDE, "0", 1, 0, 0, 0, TclOffset(DateFormat, date.julianDay), NULL},
+    {CTOKT_WIDE, "0", 7, 0, 0, 0, TclOffset(DateFormat, date.julianDay), NULL},
     /* %s */
     {CTOKT_WIDE, "0", 1, 0, 0, 0, TclOffset(DateFormat, date.seconds), NULL},
     /* %n */
@@ -2818,7 +3078,7 @@ static ClockFormatTokenMap FmtSTokenMap[] = {
     /* %t */
     {CTOKT_CHAR, "\t", 0, 0, 0, 0, 0, NULL},
     /* %Q */
-    {CTOKT_INT, NULL, 0, 0, 0, 0, 0,
+    {CFMTT_PROC, NULL, 0, 0, 0, 0, 0,
 	ClockFmtToken_StarDate_Proc, NULL},
 };
 static const char *FmtSTokenMapAliasIndex[2] = {
@@ -2827,11 +3087,17 @@ static const char *FmtSTokenMapAliasIndex[2] = {
 };
 
 static const char *FmtETokenMapIndex =
-    "Eys";
+    "EJjys";
 static ClockFormatTokenMap FmtETokenMap[] = {
     /* %EE */
-    {CTOKT_INT, NULL, 0, 0, 0, 0, TclOffset(DateFormat, date.era),
+    {CFMTT_PROC, NULL, 0, 0, 0, 0, 0,
 	ClockFmtToken_LocaleERA_Proc, NULL},
+    /* %EJ */
+    {CFMTT_PROC, NULL, 0, 0, 0, 0, 0, /* calendar JDN starts at midnight */
+	ClockFmtToken_JDN_Proc, NULL},
+    /* %Ej */
+    {CFMTT_PROC, NULL, 0, 0, 0, 0, (SECONDS_PER_DAY/2), /* astro JDN starts at noon */
+	ClockFmtToken_JDN_Proc, NULL},
     /* %Ey %EC */
     {CTOKT_INT, NULL, 0, 0, 0, 0, TclOffset(DateFormat, date.year),
 	ClockFmtToken_LocaleERAYear_Proc, NULL},
@@ -2983,20 +3249,29 @@ ClockGetOrParseFmtFormat(
 	    }
 	    break;
 	    default:
-word_tok:
-	    if (1) {
-		ClockFormatToken *wordTok = tok;
-		if (tok > fmtTok && (tok-1)->map == &FmtWordTokenMap) {
-		    wordTok = tok-1;
-		}
-		if (wordTok == tok) {
+	      word_tok:
+		{
+		/* try continue with previous word token */
+		ClockFormatToken *wordTok = tok - 1;
+
+		if (wordTok < fmtTok || wordTok->map != &FmtWordTokenMap) {
+		    /* start with new word token */
+		    wordTok = tok;
 		    wordTok->tokWord.start = p;
 		    wordTok->map = &FmtWordTokenMap;
+		}
+		do {
+		    p = Tcl_UtfNext(p);
+		} while (p < e && *p != '%');
+		wordTok->tokWord.end = p;
+
+		if (wordTok == tok) {
 		    AllocTokenInChain(tok, fmtTok, fss->fmtTokC); tokCnt++;
 		}
-		p = TclUtfNext(p);
-		wordTok->tokWord.end = p;
-	    }
+
+
+
+		}
 	    break;
 	    }
 	}
@@ -3013,9 +3288,8 @@ word_tok:
 	fss->fmtTok = fmtTok;
 	fss->fmtTokC = tokCnt;
     }
-done:
-    Tcl_MutexUnlock(&ClockFmtMutex);
 
+    Tcl_MutexUnlock(&ClockFmtMutex);
     return fss;
 }
 
@@ -3199,10 +3473,12 @@ ClockFrmScnClearCaches(void)
     Tcl_MutexUnlock(&ClockFmtMutex);
 }
 
-static void
-ClockFrmScnFinalize(
-    ClientData clientData)  /* Not used. */
+void
+ClockFrmScnFinalize()
 {
+    if (!initialized) {
+	return;
+    }
     Tcl_MutexLock(&ClockFmtMutex);
 #if CLOCK_FMT_SCN_STORAGE_GC_SIZE > 0
     /* clear GC */
@@ -3211,8 +3487,8 @@ ClockFrmScnFinalize(
     ClockFmtScnStorage_GC.count = 0;
 #endif
     if (initialized) {
-	Tcl_DeleteHashTable(&FmtScnHashTable);
 	initialized = 0;
+	Tcl_DeleteHashTable(&FmtScnHashTable);
     }
     Tcl_MutexUnlock(&ClockFmtMutex);
     Tcl_MutexFinalize(&ClockFmtMutex);
