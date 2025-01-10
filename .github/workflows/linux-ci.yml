@@ -25,19 +25,19 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: Install dependencies	
+      - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y tcl8.6-dev
 
-      - name: configure	
+      - name: configure
         run: |
           autoconf
           autoreconf -iv
           cd unix
           ../configure --with-tcl=/usr/lib/tcl8.6
 
-      - name: make	
+      - name: make
         run: |
           cd unix
           make
@@ -47,7 +47,8 @@ jobs:
           # current time and time-zone:
           echo $TZ; timedatectl status
           # load local library and execute local test cases:
-          tclsh tests/all.tcl
+          cd unix
+          make test
           
       - name: install
         run: |
