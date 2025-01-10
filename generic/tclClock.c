@@ -3500,7 +3500,7 @@ baseNow:
     if ( dataPtr->lastBase.timezoneObj == opts->timezoneObj
 	 && dataPtr->lastBase.date.seconds == baseVal
 	 && (!(dataPtr->lastBase.date.flags & CLF_CTZ)
-	     || dataPtr->lastTZEpoch == TzsetIfNecessary()) {
+	     || dataPtr->lastTZEpoch == TzsetIfNecessary())) {
 	canUseLastBase = 1;
 	/*
 	 * There's one exception: If TZ changed, and if timezone is just the
