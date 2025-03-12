@@ -609,9 +609,9 @@ Tcl_ObjType ClockFmtObjType = {
     (*((Tcl_Obj **)&(objPtr)->internalRep.twoPtrValue.ptr2))
 
 static void
-ClockFmtObj_DupInternalRep(srcPtr, copyPtr)
-    Tcl_Obj *srcPtr;
-    Tcl_Obj *copyPtr;
+ClockFmtObj_DupInternalRep(
+    Tcl_Obj *srcPtr,
+    Tcl_Obj *copyPtr)
 {
     ClockFmtScnStorage *fss = ObjClockFmtScn(srcPtr);
 
@@ -640,8 +640,8 @@ ClockFmtObj_DupInternalRep(srcPtr, copyPtr)
 }
 
 static void
-ClockFmtObj_FreeInternalRep(objPtr)
-    Tcl_Obj *objPtr;
+ClockFmtObj_FreeInternalRep(
+    Tcl_Obj *objPtr)
 {
     ClockFmtScnStorage *fss = ObjClockFmtScn(objPtr);
     if (fss != NULL && initialized) {
@@ -668,9 +668,9 @@ ClockFmtObj_FreeInternalRep(objPtr)
 };
 
 static int
-ClockFmtObj_SetFromAny(interp, objPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj    *objPtr;
+ClockFmtObj_SetFromAny(
+    Tcl_Interp * interp,
+    Tcl_Obj *objPtr)
 {
     /* validate string representation before free old internal represenation */
     (void)TclGetString(objPtr);
@@ -688,8 +688,8 @@ ClockFmtObj_SetFromAny(interp, objPtr)
 };
 
 static void
-ClockFmtObj_UpdateString(objPtr)
-    Tcl_Obj  *objPtr;
+ClockFmtObj_UpdateString(
+    Tcl_Obj *objPtr)
 {
     const char *name = "UNKNOWN";
     int	  len;
