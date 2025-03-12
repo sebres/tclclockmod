@@ -92,6 +92,7 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 /* extra flags used outside of scan/format-tokens too (int, not a short int) */
 #define CLF_RELCONV	       (1 << 17)
 #define CLF_ORDINALMONTH       (1 << 18)
+#define CLF_TREK	       (1 << 19)
 
 /* On demand (lazy) assemble flags */
 #define CLF_ASSEMBLE_DATE      (1 << 28) /* assemble year, month, etc. using julianDay */

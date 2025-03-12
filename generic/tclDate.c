@@ -1495,12 +1495,14 @@ yyreduce:
   case 7: /* item: ordMonth  */
                    {
 	    yyIncrFlags(CLF_ORDINALMONTH);
+	    info->flags |= CLF_RELCONV;
 	}
     break;
 
   case 8: /* item: day  */
               {
 	    yyIncrFlags(CLF_DAYOFWEEK);
+	    info->flags |= CLF_RELCONV;
 	}
     break;
 
@@ -1519,7 +1521,7 @@ yyreduce:
   case 11: /* item: trek  */
                {
 	    yyIncrFlags(CLF_TIME|CLF_HAVEDATE);
-	    info->flags |= CLF_RELCONV;
+	    info->flags |= CLF_TREK;
 	}
     break;
 
@@ -1780,6 +1782,7 @@ yyreduce:
 	    yyMonth = 1;
 	    yyRelDay += (((yyvsp[-2].Number)%1000)*(365 + IsLeapYear(yyYear)))/1000;
 	    yyRelSeconds += (yyvsp[0].Number) * 144 * 60;
+	    info->flags |= CLF_RELCONV;
 	}
     break;
 
@@ -1843,6 +1846,7 @@ yyreduce:
                     {
 	    (yyval.Number) = (yyvsp[0].Number);
 	    yyRelPointer = &yyRelSeconds;
+	    /* no flag CLF_RELCONV needed by seconds */
 	}
     break;
 
@@ -1850,6 +1854,7 @@ yyreduce:
                     {
 	    (yyval.Number) = (yyvsp[0].Number);
 	    yyRelPointer = &yyRelDay;
+	    info->flags |= CLF_RELCONV;
 	}
     break;
 
@@ -1857,6 +1862,7 @@ yyreduce:
                       {
 	    (yyval.Number) = (yyvsp[0].Number);
 	    yyRelPointer = &yyRelMonth;
+	    info->flags |= CLF_RELCONV;
 	}
     break;
 
@@ -1880,7 +1886,7 @@ yyreduce:
 
   case 70: /* numitem: tUNUMBER  */
                    {
-	    if ((info->flags & (CLF_TIME|CLF_HAVEDATE|CLF_RELCONV)) == (CLF_TIME|CLF_HAVEDATE)) {
+	    if ((info->flags & (CLF_TIME|CLF_HAVEDATE|CLF_TREK)) == (CLF_TIME|CLF_HAVEDATE)) {
 		yyYear = (yyvsp[0].Number);
 	    } else {
 		yyIncrFlags(CLF_TIME);

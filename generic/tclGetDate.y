@@ -184,9 +184,11 @@ item	: time {
 	}
 	| ordMonth {
 	    yyIncrFlags(CLF_ORDINALMONTH);
+	    info->flags |= CLF_RELCONV;
 	}
 	| day {
 	    yyIncrFlags(CLF_DAYOFWEEK);
+	    info->flags |= CLF_RELCONV;
 	}
 	| relspec {
 	    info->flags |= CLF_RELCONV;
@@ -196,7 +198,7 @@ item	: time {
 	}
 	| trek {
 	    yyIncrFlags(CLF_TIME|CLF_HAVEDATE);
-	    info->flags |= CLF_RELCONV;
+	    info->flags |= CLF_TREK;
 	}
 	| numitem
 	;
@@ -387,6 +389,7 @@ trek	: tSTARDATE INTNUM '.' tUNUMBER {
 	    yyMonth = 1;
 	    yyRelDay += (($2%1000)*(365 + IsLeapYear(yyYear)))/1000;
 	    yyRelSeconds += $4 * 144 * 60;
+	    info->flags |= CLF_RELCONV;
 	}
 	;
 
@@ -429,14 +432,17 @@ sign	: '-' {
 unit	: tSEC_UNIT {
 	    $$ = $1;
 	    yyRelPointer = &yyRelSeconds;
+	    /* no flag CLF_RELCONV needed by seconds */
 	}
 	| tDAY_UNIT {
 	    $$ = $1;
 	    yyRelPointer = &yyRelDay;
+	    info->flags |= CLF_RELCONV;
 	}
 	| tMONTH_UNIT {
 	    $$ = $1;
 	    yyRelPointer = &yyRelMonth;
+	    info->flags |= CLF_RELCONV;
 	}
 	;
 
@@ -452,7 +458,7 @@ INTNUM	: tUNUMBER {
 	;
 
 numitem	: tUNUMBER {
-	    if ((info->flags & (CLF_TIME|CLF_HAVEDATE|CLF_RELCONV)) == (CLF_TIME|CLF_HAVEDATE)) {
+	    if ((info->flags & (CLF_TIME|CLF_HAVEDATE|CLF_TREK)) == (CLF_TIME|CLF_HAVEDATE)) {
 		yyYear = $1;
 	    } else {
 		yyIncrFlags(CLF_TIME);
