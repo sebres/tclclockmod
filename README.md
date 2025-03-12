@@ -56,13 +56,13 @@ The difference is much more larger, if the tests are running multi-threaded with
 #### How the performance is measured:
 
 Both tcl-core as well as tclclockmod has a file [tests-perf/clock.perf.tcl](./tests-perf/clock.perf.tcl) which can be used to compare the execution times of original clock and tclclockmod. It can be also simply performed from the tclsh, with and without loading of the module.<br/>
-Here is a diff illustrating that (which amounted to almost 95x speed-up):
+Here is a diff illustrating that (which amounted to 112x speed-up):
 ```diff
   % timerate -calibrate {}
   % clock scan "" -timezone :CET; clock scan "" -gmt 1; # warming up
   % timerate { clock scan "2009-06-30T18:30:00 CEST" -format "%Y-%m-%dT%H:%M:%S %z" -gmt 1 }
-- 62.0972 µs/# 16094 # 16103.8 #/sec 999.392 net-ms
-+ 0.654699 µs/# 1437085 # 1527419 #/sec 940.858 net-ms
+- 66.1134 µs/# 15118 # 15125.5 #/sec 999.502 net-ms
++ 0.587048 µs/# 1612463 # 1703438 #/sec 946.593 net-ms
 ```
 
 Tcl compatibility:
