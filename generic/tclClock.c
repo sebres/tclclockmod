@@ -4261,12 +4261,13 @@ ClockCalcRelTime(
 
     /* If relative time is there, adjust it in UTC as mentioned above. */
     if (yyRelSeconds) {
+	ClockClientData *dataPtr = opts->clientData;
 	/*
 	 * If timezone is not GMT/UTC (due to DST-hole, local time offset),
 	 * we shall do in-between conversion to UTC to append seconds there
 	 * and hereafter convert back to TZ, otherwise apply it direct here.
 	 */
-	if (opts->timezoneObj != opts->dataPtr->literals[LIT_GMT]) {
+	if (opts->timezoneObj != dataPtr->literals[LIT_GMT]) {
 	    /* 
 	     * Convert date info structure into UTC seconds and add relative
 	     * seconds (happens in commit).
@@ -4276,7 +4277,7 @@ ClockCalcRelTime(
 	    }
 	    yyRelSeconds = 0;
 	    /* Convert it back */
-	    if (ClockGetDateFields(opts->dataPtr, opts->interp, &yydate,
+	    if (ClockGetDateFields(dataPtr, opts->interp, &yydate,
 		  opts->timezoneObj, GREGORIAN_CHANGE_DATE) != TCL_OK) {
 		/* TODO - GREGORIAN_CHANGE_DATE should be locale-dependent */
 		return TCL_ERROR;
