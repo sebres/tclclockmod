@@ -1035,7 +1035,11 @@ ClockConfigureObjCmd(
 		    Tcl_SetObjRef(dataPtr->systemTimeZone, objv[i]);
 		    Tcl_UnsetObjRef(dataPtr->systemSetupTZData);
 		}
-		dataPtr->lastTZEpoch = lastTZEpoch;
+		if (dataPtr->lastTZEpoch != lastTZEpoch) {
+		    dataPtr->lastTZEpoch = lastTZEpoch;
+		    /* TZ epoch changed - invalidate base-cache */
+		    Tcl_UnsetObjRef(dataPtr->lastBase.timezoneObj);
+		}
 	    }
 	    if (i+1 >= objc && dataPtr->systemTimeZone != NULL
 			 && dataPtr->lastTZEpoch == lastTZEpoch) {
