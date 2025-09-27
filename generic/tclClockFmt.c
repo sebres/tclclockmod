@@ -2087,7 +2087,7 @@ EstimateTokenCount(
 /*
  *----------------------------------------------------------------------
  */
-ClockFmtScnStorage *
+static ClockFmtScnStorage *
 ClockGetOrParseScanFormat(
     Tcl_Interp *interp,		/* Tcl interpreter */
     Tcl_Obj    *formatObj)	/* Format container */
@@ -3152,7 +3152,7 @@ static ClockFormatTokenMap FmtWordTokenMap = {
 /*
  *----------------------------------------------------------------------
  */
-ClockFmtScnStorage *
+static ClockFmtScnStorage *
 ClockGetOrParseFmtFormat(
     Tcl_Interp *interp,		/* Tcl interpreter */
     Tcl_Obj    *formatObj)	/* Format container */

@@ -39,13 +39,17 @@
 #include "tclInt.h"
 
 /*
- * Bison generates several labels that happen to be unused. MS Visual C++
- * doesn't like that, and complains. Tell it to shut up.
+ * Bison generates several labels that happen to be unused. Several compilers
+ * don't like that, and complain. Simply disable the warning to silence them.
  */
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4102 )
-#endif /* _MSC_VER */
+#elif defined (__clang__) && (__clang_major__ > 14)
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#elif (__GNUC__)  && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ > 5)))
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
 
 #if 0
 #define YYDEBUG 1

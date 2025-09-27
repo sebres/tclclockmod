@@ -90,13 +90,17 @@
 #include "tclInt.h"
 
 /*
- * Bison generates several labels that happen to be unused. MS Visual C++
- * doesn't like that, and complains. Tell it to shut up.
+ * Bison generates several labels that happen to be unused. Several compilers
+ * don't like that, and complain. Simply disable the warning to silence them.
  */
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4102 )
-#endif /* _MSC_VER */
+#elif defined (__clang__) && (__clang_major__ > 14)
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#elif (__GNUC__)  && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ > 5)))
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
 
 #if 0
 #define YYDEBUG 1
@@ -716,14 +720,14 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   171,   171,   172,   176,   179,   182,   185,   189,   193,
-     196,   199,   203,   206,   211,   217,   223,   228,   232,   236,
-     240,   244,   248,   254,   255,   258,   262,   266,   270,   274,
-     278,   284,   290,   294,   299,   300,   305,   309,   314,   318,
-     323,   330,   334,   340,   340,   342,   347,   352,   354,   359,
-     361,   362,   370,   381,   396,   401,   404,   407,   410,   413,
-     416,   419,   424,   427,   432,   437,   442,   449,   452,   455,
-     460,   478,   481
+       0,   175,   175,   176,   180,   183,   186,   189,   193,   197,
+     200,   203,   207,   210,   215,   221,   227,   232,   236,   240,
+     244,   248,   252,   258,   259,   262,   266,   270,   274,   278,
+     282,   288,   294,   298,   303,   304,   309,   313,   318,   322,
+     327,   334,   338,   344,   344,   346,   351,   356,   358,   363,
+     365,   366,   374,   385,   400,   405,   408,   411,   414,   417,
+     420,   423,   428,   431,   436,   441,   446,   453,   456,   459,
+     464,   482,   485
 };
 #endif
 
