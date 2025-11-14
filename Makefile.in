@@ -307,6 +307,11 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macos
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
+# tclDate.h dependencies:
+tclClock.${OBJEXT}: tclClock.c tclDate.h
+tclClockFmt.${OBJEXT}: tclClockFmt.c tclDate.h
+tclDate.${OBJEXT}: tclDate.c tclDate.h
+
 #========================================================================
 # Distribution creation
 # You may need to tweak this target to make it work correctly.
