@@ -84,7 +84,7 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_YEAR	       (1 << 10)
 #define CLF_DAYOFWEEK	       (1 << 11)
 #define CLF_ISO8601YEAR	       (1 << 12)
-#define CLF_ISO8601WEAK	       (1 << 13)
+#define CLF_ISO8601WEEK	       (1 << 13)
 #define CLF_ISO8601CENTURY     (1 << 14)
 
 #define CLF_SIGNED	       (1 << 15)
@@ -102,7 +102,7 @@ MODULE_SCOPE size_t TclEnvEpoch;        /* Epoch of the tcl environment
 #define CLF_HAVEDATE	       (CLF_DAYOFMONTH|CLF_MONTH|CLF_YEAR)
 #define CLF_DATE	       (CLF_JULIANDAY | CLF_DAYOFMONTH | CLF_DAYOFYEAR | \
 				CLF_MONTH | CLF_YEAR | CLF_ISO8601YEAR | \
-				CLF_DAYOFWEEK | CLF_ISO8601WEAK)
+				CLF_DAYOFWEEK | CLF_ISO8601WEEK)
 
 #define TCL_MIN_SECONDS			-0x00F0000000000000L
 #define TCL_MAX_SECONDS			 0x00F0000000000000L
@@ -188,7 +188,12 @@ typedef enum ClockMsgCtLiteral {
  * Structure containing the fields used in [clock format] and [clock scan]
  */
 
-#define CLF_CTZ		(1 << 4)
+#define CLF_BCE    (1 << 1)
+				/* set if BCE */
+#define CLF_BGREG  (1 << 2)
+				/* set if the date is before Gregorian (Julian yet) */
+#define CLF_CTZ    (1 << 4)
+				/* (special) revalidate TZ epoch next time used */
 
 typedef struct TclDateFields {
 
@@ -201,8 +206,6 @@ typedef struct TclDateFields {
     int tzOffset;		/* Time zone offset in seconds east of
 				 * Greenwich */
     Tcl_WideInt julianDay;	/* Julian Day Number in local time zone */
-    enum {BCE=1, CE=0} era;	/* Era */
-    int gregorian;		/* Flag == 1 if the date is Gregorian */
     int year;			/* Year of the era */
     int dayOfYear;		/* Day of the year (1 January == 1) */
     int month;			/* Month number */
@@ -215,7 +218,7 @@ typedef struct TclDateFields {
     Tcl_WideInt secondOfMin;	/* Seconds of minute (in-between time only calculation) */
     Tcl_WideInt secondOfDay;	/* Seconds of day (in-between time only calculation) */
 
-    int flags;			/* 0 or CLF_CTZ */
+    int flags;			/* 0 or combination of CLF_-flags from above (CLF_BCE, etc). */
 
     /* Non cacheable fields:	 */
 

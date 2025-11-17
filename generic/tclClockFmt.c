@@ -1649,9 +1649,9 @@ ClockScnToken_LocaleERA_Proc(ClockFmtScnCmdArgs *opts,
     }
 
     if (val & 1) {
-	yydate.era = CE;
+	yydate.flags &= ~CLF_BCE;
     } else {
-	yydate.era = BCE;
+	yydate.flags |= CLF_BCE;
     }
 
     return TCL_OK;
@@ -1887,8 +1887,7 @@ ClockScnToken_StarDate_Proc(ClockFmtScnCmdArgs *opts,
     /* Build a date from year and fraction. */
 
     yydate.year = year + RODDENBERRY;
-    yydate.era = CE;
-    yydate.gregorian = 1;
+    yydate.flags &= ~(CLF_BCE|CLF_BGREG);
 
     if (IsGregorianLeapYear(&yydate)) {
 	fractYear *= 366;
@@ -1956,7 +1955,7 @@ static ClockScanTokenMap ScnSTokenMap[] = {
     {CTOKT_INT, CLF_ISO8601YEAR | CLF_ISO8601CENTURY, 0, 4, 4, TclOffset(DateInfo, date.iso8601Year),
 	NULL},
     /* %V */
-    {CTOKT_INT, CLF_ISO8601WEAK, 0, 1, 2, TclOffset(DateInfo, date.iso8601Week),
+    {CTOKT_INT, CLF_ISO8601WEEK, 0, 1, 2, TclOffset(DateInfo, date.iso8601Week),
 	NULL},
     /* %a %A %u %w */
     {CTOKT_PARSER, CLF_DAYOFWEEK, 0, 0, 0xffff, 0,
@@ -2539,7 +2538,7 @@ ClockScan(
 		    case (CLF_DAYOFYEAR):
 		    /* ddd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601WEAK;
+			flags &= ~CLF_ISO8601WEEK;
 		    }
 		    break;
 		    case (CLF_MONTH|CLF_DAYOFYEAR|CLF_DAYOFMONTH):
@@ -2548,7 +2547,7 @@ ClockScan(
 		    case (CLF_DAYOFMONTH):
 		    /* mmdd / dd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601WEAK;
+			flags &= ~CLF_ISO8601WEEK;
 		    }
 		    break;
 		    /* neither mmdd nor ddd available */
@@ -2556,12 +2555,12 @@ ClockScan(
 		    /* but we have day of the week, which can be used */
 		    if (flags & CLF_DAYOFWEEK) {
 			/* prefer week based calculation of julianday */
-			flags |= CLF_ISO8601WEAK;
+			flags |= CLF_ISO8601WEEK;
 		    }
 		}
 
 		/* YearWeekDay below YearMonthDay */
-		if ( (flags & CLF_ISO8601WEAK)
+		if ( (flags & CLF_ISO8601WEEK)
 		  && ( (flags & (CLF_YEAR|CLF_DAYOFYEAR)) == (CLF_YEAR|CLF_DAYOFYEAR)
 		    || (flags & (CLF_YEAR|CLF_DAYOFMONTH|CLF_MONTH)) == (CLF_YEAR|CLF_DAYOFMONTH|CLF_MONTH)
 		  )
@@ -2569,12 +2568,12 @@ ClockScan(
 		    /* yy precedence below yyyy */
 		    if (!(flags & CLF_ISO8601CENTURY) && (flags & CLF_CENTURY)) {
 			/* normally precedence of ISO is higher, but no century - so put it down */
-			flags &= ~CLF_ISO8601WEAK;
+			flags &= ~CLF_ISO8601WEEK;
 		    }
 		    else
 		    /* yymmdd or yyddd over naked weekday */
 		    if (!(flags & CLF_ISO8601YEAR)) {
-			flags &= ~CLF_ISO8601WEAK;
+			flags &= ~CLF_ISO8601WEEK;
 		    }
 		}
 
@@ -2590,7 +2589,7 @@ ClockScan(
 			}
 		    }
 		} 
-		if ( (flags & (CLF_ISO8601WEAK|CLF_ISO8601YEAR)) ) {
+		if ( (flags & (CLF_ISO8601WEEK|CLF_ISO8601YEAR)) ) {
 		    if ((flags & (CLF_ISO8601YEAR|CLF_YEAR)) == CLF_YEAR) {
 		    	/* for calculations expected iso year */
 			info->date.iso8601Year = yyYear;
@@ -2607,7 +2606,7 @@ ClockScan(
 			}
 		    }
 		    if ((flags & (CLF_ISO8601YEAR|CLF_YEAR)) == CLF_ISO8601YEAR) {
-		    	/* for calculations expected year (e. g. CLF_ISO8601WEAK not set) */
+		    	/* for calculations expected year (e. g. CLF_ISO8601WEEK not set) */
 			yyYear = info->date.iso8601Year;
 		    }
 		}
@@ -2904,7 +2903,7 @@ ClockFmtToken_LocaleERA_Proc(
     const char *s;
     int len;
 
-    if (dateFmt->date.era == BCE) {
+    if (dateFmt->date.flags & CLF_BCE) {
 	mcObj = ClockMCGet(opts, MCLIT_BCE);
     } else {
 	mcObj = ClockMCGet(opts, MCLIT_CE);
