@@ -58,82 +58,57 @@ static void ClockFmtScnStorageDelete(ClockFmtScnStorage *fss);
  *----------------------------------------------------------------------
  */
 
-static inline void
-_str2int_no(
-    int	       *out,
-    register
-    const char *p,
-    const char *e,
-    int sign)
-{
-    /* assert(e <= p+10); */
-    register int val = 0;
-    /* overflow impossible for 10 digits ("9..9"), so no needs to check at all */
-    while (p < e) {			/* never overflows */
-	val = val * 10 + (*p++ - '0');
-    }
-    if (sign < 0) { val = -val; }
-    *out = val;
-}
-
-static inline void
-_str2wideInt_no(
-    Tcl_WideInt *out,
-    register
-    const char	*p,
-    const char	*e,
-    int sign)
-{
-    /* assert(e <= p+18); */
-    register Tcl_WideInt val = 0;
-    /* overflow impossible for 18 digits ("9..9"), so no needs to check at all */
-    while (p < e) {			/* never overflows */
-	val = val * 10 + (*p++ - '0');
-    }
-    if (sign < 0) { val = -val; }
-    *out = val;
-}
-
-/* int & Tcl_WideInt overflows may happens here (expected case) */
-#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
-# pragma GCC optimize("no-trapv")
-#endif
-
 static inline int
 _str2int(
-    int	       *out,
-    register
+    int *out,
     const char *p,
     const char *e,
     int sign)
 {
-    register int val = 0;
-    /* overflow impossible for 10 digits ("9..9"), so no needs to check before */
-    const char *eNO = p+10;
-    if (eNO > e) {
-	eNO = e;
+    char last;
+    int val = 0;
+
+    if (e - p > 10) {           /* definitely overflows */
+        return TCL_ERROR;
     }
-    while (p < eNO) {				/* never overflows */
-	val = val * 10 + (*p++ - '0');
+
+    /*
+     * Overflow impossible for max 9 digits ("9..9"),
+     * or for 10 digits if it starts with 1 ("19..9").
+     */
+    if (e - p <= 9 || *p <= '1' ) {
+        while (p < e) {
+            val = val * 10 + (*p++ - '0');
+        }
+        *out = (sign >= 0) ? val : -val;
+        return TCL_OK;
     }
+
+    /* 10 digits and it may overflow at last char */
+    e--;
+    while (p < e) {
+        val = val * 10 + (*p++ - '0');
+    }
+    last = *p - '0';
     if (sign >= 0) {
-	while (p < e) {				/* check for overflow */
-	    int prev = val;
-	    val = val * 10 + (*p++ - '0');
-	    if (val / 10 < prev) {
-		return TCL_ERROR;
-	    }
-	}
+        if ( (val > INT_MAX / 10)
+          || ((val == INT_MAX / 10) && (last > INT_MAX % 10))
+        ) {
+            return TCL_ERROR;   /* overflow*/
+        }
+        val = val * 10 + last;
     } else {
-	val = -val;
-	while (p < e) {				/* check for overflow */
-	    int prev = val;
-	    val = val * 10 - (*p++ - '0');
-	    if (val / 10 > prev) {
-		return TCL_ERROR;
-	    }
-	}
+        val = -val;
+        if ( (val < INT_MIN / 10)
+          || ((val == INT_MIN / 10) && ((INT_MIN % 10 < 0) ?
+                (last > -(INT_MIN % 10)) : (last > 10-(INT_MIN % 10))
+          ))
+        ) {
+            return TCL_ERROR;   /* overflow*/
+        }
+        val = val * 10 - last;
     }
+
     *out = val;
     return TCL_OK;
 }
@@ -141,38 +116,54 @@ _str2int(
 static inline int
 _str2wideInt(
     Tcl_WideInt *out,
-    register
-    const char	*p,
-    const char	*e,
+    const char *p,
+    const char *e,
     int sign)
 {
-    register Tcl_WideInt val = 0;
-    /* overflow impossible for 18 digits ("9..9"), so no needs to check before */
-    const char *eNO = p+18;
-    if (eNO > e) {
-	eNO = e;
+    char last;
+    Tcl_WideInt val = 0;
+
+    if (e - p > 19) {           /* definitely overflows */
+        return TCL_ERROR;
     }
-    while (p < eNO) {				/* never overflows */
-	val = val * 10 + (*p++ - '0');
+
+    /*
+     * Overflow impossible for max 18 digits ("9..9"),
+     * or for 19 digits if it starts with 8 ("89..9").
+     */
+    if (e - p <= 18 || *p <= '8' ) {
+        while (p < e) {
+            val = val * 10 + (*p++ - '0');
+        }
+        *out = (sign >= 0) ? val : -val;
+        return TCL_OK;
     }
+
+    /* 19 digits and it may overflow at last char */
+    e--;
+    while (p < e) {
+        val = val * 10 + (*p++ - '0');
+    }
+    last = *p - '0';
     if (sign >= 0) {
-	while (p < e) {				/* check for overflow */
-	    Tcl_WideInt prev = val;
-	    val = val * 10 + (*p++ - '0');
-	    if (val / 10 < prev) {
-		return TCL_ERROR;
-	    }
-	}
+        if ( (val > WIDE_MAX / 10)
+          || ((val == WIDE_MAX / 10) && (last > WIDE_MAX % 10))
+        ) {
+            return TCL_ERROR;   /* overflow*/
+        }
+        val = val * 10 + last;
     } else {
-	val = -val;
-	while (p < e) {				/* check for overflow */
-	    Tcl_WideInt prev = val;
-	    val = val * 10 - (*p++ - '0');
-	    if (val / 10 > prev) {
-		return TCL_ERROR;
-	    }
-	}
+        val = -val;
+        if ( (val < WIDE_MIN / 10)
+          || ((val == WIDE_MIN / 10) && ((WIDE_MIN % 10 < 0) ?
+                (last > -(WIDE_MIN % 10)) : (last > 10-(WIDE_MIN % 10))
+          ))
+        ) {
+            return TCL_ERROR;   /* overflow*/
+        }
+        val = val * 10 - last;
     }
+
     *out = val;
     return TCL_OK;
 }
@@ -186,10 +177,6 @@ TclAtoWIe(
 {
     return _str2wideInt(out, p, e, sign);
 }
-
-#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
-# pragma GCC reset_options
-#endif
 
 /*
  *----------------------------------------------------------------------
@@ -2398,30 +2385,15 @@ ClockScan(
 	    if (map->offs) {
 		p = yyInput; x = p + size;
 		if (map->type == CTOKT_INT) {
-		    if (size <= 10) {
-			_str2int_no((int *)(((char *)info) + map->offs),
-				p, x, sign);
-		    } else {
-			/* we don't have such large scan tokens at the moment */
-			goto overflow;
-			/* currently unused (maxSize of CTOKT_INT tokens <= 10) */
-			#if 0
-			if (_str2int((int *)(((char *)info) + map->offs),
+		    if (_str2int((int *)(((char *)info) + map->offs),
 				p, x, sign) != TCL_OK) {
-			    goto overflow;
-			}
-			#endif
+			goto overflow;
 		    }
 		    p = x;
 		} else {
-		    if (size <= 18) {
-			_str2wideInt_no((Tcl_WideInt *)(((char *)info) + map->offs),
-				p, x, sign);
-		    } else {
-			if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
+		    if (_str2wideInt((Tcl_WideInt *)(((char *)info) + map->offs),
 				p, x, sign) != TCL_OK) {
-			    goto overflow;
-			}
+			goto overflow;
 		    }
 		    p = x;
 		}
